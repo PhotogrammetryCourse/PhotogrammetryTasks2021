@@ -1,5 +1,6 @@
 В этом репозитории предложены задания для курса по фотограмметрии в [CSCenter](https://compscicenter.ru/courses/photogrammetry/) и [CSClub](https://compsciclub.ru/courses/photogrammetry/).
 
+<<<<<<< HEAD
 [Остальные задания](https://github.com/PhotogrammetryCourse/PhotogrammetryTasks2021/).
 
 # Задание 2. Сопоставление ключевых точек и подсчет гомографии
@@ -59,3 +60,8 @@
  - Если все хорошо, за выполненное задание дается **8 баллов**
  - **1 доп. балл** можно получить, если при оценке матрицы гомографии реализовать метод **A contrario RANSAC**, не требующий на вход порога (см. homography.cpp:166)
  - **1 доп. балл** можно получить, если реализовать Brute-force матчер на GPU. Для включения его в тестах см. **ENABLE_MY_MATCHING** в ```test/test_matching.cpp```
+=======
+Задания:
+
+ - [Задание 1](https://github.com/PhotogrammetryCourse/PhotogrammetryTasks2021/tree/task01): Локальные ключевые точки SIFT (детектор и дескриптор).
+>>>>>>> Task 1: SIFT
