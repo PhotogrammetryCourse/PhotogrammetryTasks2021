@@ -40,39 +40,86 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
 {
 
     gaussianPyramid.resize(NOCTAVES * OCTAVE_GAUSSIAN_IMAGES);
-    DoGPyramid.resize(NOCTAVES * OCTAVE_GAUSSIAN_IMAGES);
+    DoGPyramid.resize(NOCTAVES * OCTAVE_DOG_IMAGES);
 
     cv::Mat img_init = imgOrg.clone();
 
-     float sigma_x = INITIAL_IMG_SIGMA, sigma_y = INITIAL_IMG_SIGMA;
+    const double k_scale = pow(2.0, 1.0 / OCTAVE_NLAYERS); // [lowe04] k = 2^{1/s} а у нас s=OCTAVE_NLAYERS
+
 
     for (size_t i = 0; i < NOCTAVES; ++i) {
-        float k_scale = std::sqrt(2);
-
+#pragma omp parallel for
         for (size_t k = 0; k < OCTAVE_GAUSSIAN_IMAGES; ++k) {
 
-            cv::Size kernel(3,3);
+            cv::Size kernel(5,5);
+            double sigmaCur = INITIAL_IMG_SIGMA * pow(2.0, i) * pow(k_scale, k);
 
-
-            cv::GaussianBlur(img_init,gaussianPyramid.at(i * k), kernel, k_scale * sigma_x, k_scale * sigma_y);
-            img_init = gaussianPyramid.at(i * k).clone();
+            cv::GaussianBlur(img_init,gaussianPyramid.at(i*OCTAVE_GAUSSIAN_IMAGES + k), kernel, sigmaCur,sigmaCur);
+//            img_init = gaussianPyramid.at(i * k).clone();
 
             if(k > 0)
             {
-                DoGPyramid.at(i * k) = gaussianPyramid.at(i * k) - gaussianPyramid.at(i * k-1);
+                DoGPyramid.at(i*OCTAVE_DOG_IMAGES + k-1) = gaussianPyramid.at(i*OCTAVE_GAUSSIAN_IMAGES + k) - gaussianPyramid.at(i*OCTAVE_GAUSSIAN_IMAGES + k-1);
             }
 
         }
+
+        cv::resize(img_init,img_init,cv::Size(img_init.cols/2, img_init.rows/2));
     }
 
     for (size_t octave = 0; octave < NOCTAVES; ++octave) {
         for (size_t layer = 0; layer < OCTAVE_GAUSSIAN_IMAGES; ++layer) {
-            double sigmaCur = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, layer);
+            double sigmaCur = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k_scale, layer);
             if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramid/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + ".png", gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer]);
             // TODO: какие ожидания от картинок можно придумать? т.е. как дополнительно проверить что работает разумно?
             // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера?
         }
     }
 
+    // нам нужны padding-картинки по краям октавы чтобы извлекать экстремумы, но в статье предлагается не s+2 а s+3: [lowe04] We must produce s + 3 images in the stack of blurred images for each octave, so that final extrema detection covers a complete octave
+    // TODO: почему OCTAVE_GAUSSIAN_IMAGES=(OCTAVE_NLAYERS + 3) а не например (OCTAVE_NLAYERS + 2)?
+
+    for (size_t octave = 0; octave < NOCTAVES; ++octave) {
+        for (size_t layer = 0; layer < OCTAVE_DOG_IMAGES; ++layer) {
+            double sigmaCur = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k_scale, layer);
+            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramidDoG/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + ".png", DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer] );
+            // TODO: какие ожидания от картинок можно придумать? т.е. как дополнительно проверить что работает разумно?
+            // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы DoG? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера?
+        }
+    }
+
 
 }
+
+// Сигнатуру этого метода менять нельзя
+void phg::SIFT::detectAndCompute(const cv::Mat &originalImg, std::vector<cv::KeyPoint> &kps, cv::Mat &desc){
+
+    cv::Mat img = originalImg.clone();
+    if (originalImg.type() == CV_8UC1) { // greyscale image
+        img.convertTo(img, CV_32FC1, 1.0);
+    } else if (originalImg.type() == CV_8UC3) { // BGR image
+        img.convertTo(img, CV_32FC3, 1.0);
+        cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
+    } else {
+        rassert(false, 14291409120);
+    }
+
+    std::vector<cv::Mat> gaussianPyramid;
+    std::vector<cv::Mat> DoGPyramid;
+    buildPyramids(img,gaussianPyramid,DoGPyramid);
+
+}
+
+void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussianPyramid, const std::vector<cv::Mat> &DoGPyramid,
+                                  std::vector<cv::KeyPoint> &keyPoints, cv::Mat &desc){
+
+
+
+}
+
+bool phg::SIFT::buildLocalOrientationHists(const cv::Mat &img, size_t i, size_t j, size_t radius,
+                                std::vector<float> &votes, float &biggestVote){}
+
+bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double descrRadius, float angle,
+                     std::vector<float> &descriptor){}
+
