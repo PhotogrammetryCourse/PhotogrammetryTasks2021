@@ -296,7 +296,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                                        DoGs[1].at<float>(j - 1, i - 1) -
                                        DoGs[1].at<float>(j - 1, i + 1) -
                                        DoGs[1].at<float>(j + 1, i - 1);
-                          Hxy /= 2;
+                          Hxy /= 4;
                           double trace = Hxx + Hyy;
                           double determinant = Hxx * Hyy - Hxy * Hxy;
                           if (determinant <= 0)
