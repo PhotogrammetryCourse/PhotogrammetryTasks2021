@@ -423,6 +423,7 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
                             rassert(bin < DESCRIPTOR_NBINS, 361236315613);
                             sum[bin] += magnitude;
                             // TODO хорошая идея добавить трилинейную интерполяцию как предложено в статье, или хотя бы сэмулировать ее - сгладить получившиеся гистограммы
+                            // https://dxdy.ru/topic51583.html
                         }
                     }
                 }
