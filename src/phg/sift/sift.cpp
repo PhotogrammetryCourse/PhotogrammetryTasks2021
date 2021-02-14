@@ -79,30 +79,50 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             int layer = 0;
             size_t prevOctave = octave - 1;
             // берем картинку с предыдущей октавы и уменьшаем ее в два раза без какого бы то ни было дополнительного размытия (сигмы должны совпадать)
-            // cv::Mat img = gaussianPyramid[ TODO ].clone();
+            cv::Mat img = gaussianPyramid[ prevOctave * OCTAVE_GAUSSIAN_IMAGES ].clone();
             // тут есть очень важный момент, мы должны указать fx=0.5, fy=0.5 иначе при нечетном размере картинка будет не идеально 2 пикселя в один схлопываться - а слегка смещаться
-            // cv::resize(img, img, cv::Size( TODO , TODO ), 0.5, 0.5, cv::INTER_NEAREST);
-            // gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer] = img;
+            //cv::resize(img, img, cv::Size( img.cols * 0.5 , img.rows * 0.5 ),  cv::INTER_NEAREST);
+            cv::resize(img, img, cv::Size( img.cols * 0.5 , img.rows * 0.5 ), 0.5, 0.5, cv::INTER_NEAREST);
+            //Оля: визуально у меня ощущение, что если наоборот мы указываем fx=0.5 и fy=0.5, то смещение происходит.
+            gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer] = img;
+            std::stringstream ss;
+            ss << octave;
+            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "03_" + ss.str() + "oct_resize.png", img);
         }
 
-//        #pragma omp parallel for // TODO: если выполните TODO про "размытие из изначального слоя октавы" ниже - раскоментируйте это распараллеливание, ведь теперь слои считаются независимо (из самого первого), проверьте что результат на картинках не изменился
+
+
+        #pragma omp parallel for // TODO: если выполните TODO про "размытие из изначального слоя октавы" ниже - раскоментируйте это распараллеливание, ведь теперь слои считаются независимо (из самого первого), проверьте что результат на картинках не изменился
         for (ptrdiff_t layer = 1; layer < OCTAVE_GAUSSIAN_IMAGES; ++layer) {
             size_t prevLayer = layer - 1;
 
             // если есть два последовательных гауссовых размытия с sigma1 и sigma2, то результат будет с sigma12=sqrt(sigma1^2 + sigma2^2) => sigma2=sqrt(sigma12^2-sigma1^2)
-            double sigmaPrev = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, prevLayer); // sigma1  - сигма до которой дошла картинка на предыдущем слое
-            double sigmaCur  = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
+            /*double sigmaPrev = INITIAL_IMG_SIGMA  * pow(k, prevLayer); // sigma1  - сигма до которой дошла картинка на предыдущем слое
+            double sigmaCur  = INITIAL_IMG_SIGMA  * pow(k, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
             double sigma = sqrt(sigmaCur*sigmaCur - sigmaPrev*sigmaPrev);                // sigma2  - сигма которую надо добавить чтобы довести sigma1 до sigma12
+             */
 
             // TODO: переделайте это добавочное размытие с варианта "размываем предыдущий слой" на вариант "размываем самый первый слой октавы до степени размытия сигмы нашего текущего слоя"
             // проверьте - картинки отладочного вывода выглядят один-в-один до/после? (посмотрите на них туда-сюда быстро мигая)
 
-            cv::Mat imgLayer = gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + prevLayer].clone();
+            // если есть два последовательных гауссовых размытия с sigma1 и sigma2, то результат будет с sigma12=sqrt(sigma1^2 + sigma2^2) => sigma2=sqrt(sigma12^2-sigma1^2)
+            double nsigmaPrev = INITIAL_IMG_SIGMA;         // sigma1  - сигма до которой дошла картинка на предыдущем слое
+            double nsigmaCur  = INITIAL_IMG_SIGMA * pow(k, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
+            double nsigma = sqrt(nsigmaCur*nsigmaCur - nsigmaPrev*nsigmaPrev);                // sigma2  - сигма которую надо добавить чтобы довести sigma1 до sigma12
+
+
+            //cv::Mat imgLayer = gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + prevLayer].clone();
             cv::Size automaticKernelSize = cv::Size(0, 0);
 
-            cv::GaussianBlur(imgLayer, imgLayer, automaticKernelSize, sigma, sigma);
+            //cv::GaussianBlur(imgLayer, imgLayer, automaticKernelSize, sigma, sigma);
+            //if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "04_init_sigma_bluer.png", imgLayer);
 
-            gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer] = imgLayer;
+
+            cv::Mat nimgLayer = gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES].clone();
+            cv::GaussianBlur(nimgLayer, nimgLayer, automaticKernelSize, nsigma, nsigma);
+            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "04_from_first_sigma_bluer.png", nimgLayer);
+
+            gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer] = nimgLayer;
         }
     }
 
@@ -111,7 +131,9 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             double sigmaCur = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, layer);
             if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramid/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + ".png", gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer]);
             // TODO: какие ожидания от картинок можно придумать? т.е. как дополнительно проверить что работает разумно?
-            // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера? 
+            // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера?
+            // Оля: можно сравнить картинки с одинковым сигма с разных слоев. Должно быть что-то близкое. В целом на вид кажется, что всё-таки картика с более ранеё оставы с такой же сигмой всё-таки немного более чёткая.
+            // вот можно картинку честно сжать и посмотреть будет ли одинаковая история. Но так-то мы же в каждом слое с запасом картинок делаем, вот конец одноой октавы и начало другой и нужно сравнить.
         }
     }
 
@@ -140,13 +162,24 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
 
     // нам нужны padding-картинки по краям октавы чтобы извлекать экстремумы, но в статье предлагается не s+2 а s+3: [lowe04] We must produce s + 3 images in the stack of blurred images for each octave, so that final extrema detection covers a complete octave
     // TODO: почему OCTAVE_GAUSSIAN_IMAGES=(OCTAVE_NLAYERS + 3) а не например (OCTAVE_NLAYERS + 2)?
+    // Оля: +3 это на уровне пирамиды гауссиан, а вот на уровне пирамиды разниц будет уже +2. Ну вот посмотрим на стык. Нам обязательно нужно что бы оствался один фиктивный слой сверху и снизу, иначе экстрмум не получится найти.
+    // Вот у нас в разницах в октавах есть пересечение на два слоя, в нижней октаве самый верхний слой будет фиктивным, что бы можно было проверить на то что это реально экстремум а слой на один ниже мы уже будем
+    // реально использовать,  когда захотим что-то умное делать. там дискрипторы описвать и так далее. А вот в октаве на верхнем уровне, наоборот 0 слой -- фиктивный для поиска экстремума, а 1 будем реально использовать.
 
     for (size_t octave = 0; octave < NOCTAVES; ++octave) {
         for (size_t layer = 0; layer < OCTAVE_DOG_IMAGES; ++layer) {
             double sigmaCur = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, layer);
             if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramidDoG/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + ".png", DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer]);
             // TODO: какие ожидания от картинок можно придумать? т.е. как дополнительно проверить что работает разумно?
-            // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы DoG? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера? 
+            // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы DoG? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера?
+            // Оля: Ну этот вопрос уже был. У нас две последение картинки из одной октавы совпадают с первыми картинками из следующеей октавы.
+            cv::Mat img;
+            cv::resize(DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer], img, cv::Size( DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer].cols * 0.5 , DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer].rows * 0.5 ), 0.5, 0.5, cv::INTER_NEAREST);
+            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramidDoG/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + "resize05.png", img);
+            // Как-то картинка прям совсем другой получается -- это обидно. Здесь это уже очень хорошо заметно.
+            // Ну не, и в изначальных сигма всё получилась по разному, значит я ничего не испортила.
+            // Ну вот я считаю, что на 2**oct домножать не надо в sigma. Я вообще не понимаю, с чего бы мы на это значение домножаем.
+            // мы же этот параметр и так автоматически учтём за счёт того, что у насм картинка сжата. Удалю эту ненужную чиселку.
         }
     }
 }
