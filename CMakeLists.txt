@@ -30,12 +30,8 @@ find_package(OpenCV 4.5.1 REQUIRED)
 # в CLion это делается через File->Settings->Build, Execution, Deployment->CMake->CMake options: -DOpenCV_DIR=/opt/opencv451
 # там же сразу стоит добавить в дополнению к Debug сборке - сборку с включенными оптимизациями и отладочными символами - RelWithDebInfo
 #
-#     Windows: (не уверен что работает, рекомендуется использовать Linux)
-# скачайте opencv-4.5.1-vc14_vc15.exe отсюда - https://github.com/opencv/opencv/releases и запустите
-# запомните папку в которую проведена распаковка (пусть это например "C:\Users\UserName\Downloads\opencv")
-# укажите для CMake путь к OpenCV:
-# в CLion это делается через File->Settings->Build, Execution, Deployment->CMake->CMake options: -DOpenCV_DIR=C:\Users\UserName\Downloads\opencv\build
-# там же сразу стоит добавить в дополнению к Debug сборке - сборку с включенными оптимизациями и отладочными символами - RelWithDebInfo
+#     Windows: (но рекомендуется использовать Linux)
+# Скачайте этот скрипт и следуйте инструкции - https://gist.github.com/PolarNick239/18036d942ae4b9aad9f1da756ce6c845#file-buildocv-sh-L10-L33
 
 set(SOURCES
         src/phg/sift/sift.cpp
