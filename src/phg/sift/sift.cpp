@@ -85,7 +85,7 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             // gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer] = img;
 
             cv::Mat img = gaussianPyramid[NOCTAVES * prevOctave +  OCTAVE_NLAYERS].clone();
-            cv::resize(img, img, cv::Size( img.cols/2 , img.rows/2 ), 0.5, 0.5, cv::INTER_NEAREST);
+            cv::resize(img, img, cv::Size( (img.cols+1)/2 , (img.rows+1)/2 ), 0.5, 0.5, cv::INTER_NEAREST);
             gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer] = img;
         }
 
@@ -207,7 +207,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
     std::vector<std::vector<float>> pointsDesc;
 
     // 3.1 Local extrema detection
-    //#pragma omp parallel // запустили каждый вычислительный поток процессора
+//    #pragma omp parallel // запустили каждый вычислительный поток процессора
     {
         // каждый поток будет складировать свои точки в свой личный вектор (чтобы не было гонок и не были нужны точки синхронизации)
         std::vector<cv::KeyPoint> thread_points;
@@ -261,6 +261,10 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                             // TODO
                         }
 #endif
+
+                        dx = parabolaFitting(DoGs[1].at<float>(j, i-1),DoGs[1].at<float>(j, i),DoGs[1].at<float>(j, i+1));
+                        dx = parabolaFitting(DoGs[1].at<float>(j-1, i),DoGs[1].at<float>(j, i),DoGs[1].at<float>(j + 1, i));
+
                         // TODO сделать фильтрацию слабых точек по слабому контрасту
                         float contrast = center + dvalue;
                         if (contrast < contrast_threshold / OCTAVE_NLAYERS) // TODO почему порог контрастности должен уменьшаться при увеличении числа слоев в октаве?
@@ -365,11 +369,18 @@ bool phg::SIFT::buildLocalOrientationHists(const cv::Mat &img, size_t i, size_t 
         }
     }
 
+    float sum_smoothed[DESCRIPTOR_NBINS] = {0.0f};
+    std::vector<double> mask = {0.25, 0.5, 0.25};
+    for (int i = 0; i < DESCRIPTOR_NBINS; ++i) {
 
+        int left = i-1 < 0 ? DESCRIPTOR_NBINS-1 : i-1;
+        int right = i+1 >= DESCRIPTOR_NBINS ? 0 : i+1;
 
+        sum_smoothed[i] = sum[left] * mask[0] + mask[1] * sum[i]+ mask[1] * sum[right];
+    }
 
     for (size_t bin = 0; bin < ORIENTATION_NHISTS; ++bin) {
-        votes[bin] = sum[bin];
+        votes[bin] = sum_smoothed[bin];
         biggestVote = std::max(biggestVote, sum[bin]);
     }
 
@@ -390,50 +401,56 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
 
             for (int smpj = 0; smpj < DESCRIPTOR_SAMPLES_N; ++smpj) { // перебираем строчку замера для текущей гистограммы
                 for (int smpi = 0; smpi < DESCRIPTOR_SAMPLES_N; ++smpi) { // перебираем столбик очередного замера для текущей гистограммы
-                    for (int smpy = 0; smpy < smpW; ++smpy) { // перебираем ряд пикселей текущего замера
-                        for (int smpx = 0; smpx < smpW; ++smpx) { // перебираем столбик пикселей текущего замера
-                            cv::Point2f shift(((-DESCRIPTOR_SIZE/2.0 + hsti) * DESCRIPTOR_SAMPLES_N + smpi) * smpW,
-                                              ((-DESCRIPTOR_SIZE/2.0 + hstj) * DESCRIPTOR_SAMPLES_N + smpj) * smpW); // done
-                            std::vector<cv::Point2f> shiftInVector(1, shift);
-                            cv::transform(shiftInVector, shiftInVector, relativeShiftRotation); // преобразуем относительный сдвиг с учетом ориентации ключевой точки
+                    cv::Point2f shift(((-DESCRIPTOR_SIZE/2.0 + hsti) * DESCRIPTOR_SAMPLES_N + smpi) * smpW,
+                                      ((-DESCRIPTOR_SIZE/2.0 + hstj) * DESCRIPTOR_SAMPLES_N + smpj) * smpW); // done
+                    std::vector<cv::Point2f> shiftInVector(1, shift);
+                    cv::transform(shiftInVector, shiftInVector, relativeShiftRotation); // преобразуем относительный сдвиг с учетом ориентации ключевой точки
 
-                            shift = shiftInVector[0];
+                    shift = shiftInVector[0];
 
-                            int x = (int) (px + shift.x);
-                            int y =  (int) (py + shift.y); // done
+                    int x = (int) (px + shift.x);
+                    int y =  (int) (py + shift.y); // done
 
-                            if (y - 1 < 0 || y + 1 > img.rows || x - 1 < 0 || x + 1 > img.cols)
-                                return false;
+                    if (y - 1 < 0 || y + 1 > img.rows || x - 1 < 0 || x + 1 > img.cols)
+                        return false;
 
-                            float xx = img.at<float>(y + 1, x) - img.at<float>(y - 1, x);
-                            float yy = img.at<float>(y, x + 1) - img.at<float>(y, x - 1);
-                            double magnitude = std::sqrt(std::pow(xx, 2) + std::pow(yy,2));// done
+                    float xx = img.at<float>(y + 1, x) - img.at<float>(y - 1, x);
+                    float yy = img.at<float>(y, x + 1) - img.at<float>(y, x - 1);
+                    double magnitude = std::sqrt(std::pow(xx, 2) + std::pow(yy,2));// done
 
-                            double orientation = atan2(xx,yy); // done
-                            orientation = orientation * 180.0 / M_PI;
-                            orientation = (orientation + 90.0);
-                            if (orientation <  0.0)   orientation += 360.0;
-                            if (orientation >= 360.0) orientation -= 360.0;
+                    double orientation = atan2(xx,yy); // done
+                    orientation = orientation * 180.0 / M_PI;
+                    orientation = (orientation + 90.0);
+                    if (orientation <  0.0)   orientation += 360.0;
+                    if (orientation >= 360.0) orientation -= 360.0;
 
-                            // TODO за счет чего этот вклад будет сравниваться с этим же вкладом даже если эта картинка будет повернута? что нужно сделать с ориентацией каждого градиента из окрестности этой ключевой точки?
+                    // TODO за счет чего этот вклад будет сравниваться с этим же вкладом даже если эта картинка будет повернута? что нужно сделать с ориентацией каждого градиента из окрестности этой ключевой точки?
 
-                            rassert(orientation >= 0.0 && orientation < 360.0, 3515215125412);
-                            static_assert(360 % DESCRIPTOR_NBINS == 0, "Inappropriate bins number!");
-                            size_t bin = orientation / (360. / DESCRIPTOR_NBINS); // done;
-                            rassert(bin < DESCRIPTOR_NBINS, 361236315613);
-                            sum[bin] += magnitude;
-                            // TODO хорошая идея добавить трилинейную интерполяцию как предложено в статье, или хотя бы сэмулировать ее - сгладить получившиеся гистограммы
-                            // https://dxdy.ru/topic51583.html
-                        }
-                    }
+                    rassert(orientation >= 0.0 && orientation < 360.0, 3515215125412);
+                    static_assert(360 % DESCRIPTOR_NBINS == 0, "Inappropriate bins number!");
+                    size_t bin = orientation / (360. / DESCRIPTOR_NBINS); // done;
+                    rassert(bin < DESCRIPTOR_NBINS, 361236315613);
+                    sum[bin] += magnitude;
+                    // TODO хорошая идея добавить трилинейную интерполяцию как предложено в статье, или хотя бы сэмулировать ее - сгладить получившиеся гистограммы
                 }
             }
+            //https://coderoad.ru/3165107/%D0%A1%D0%B3%D0%BB%D0%B0%D0%B6%D0%B8%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5-%D0%93%D0%B8%D1%81%D1%82%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B
+            float sum_smoothed[DESCRIPTOR_NBINS] = {0.0f};
+            std::vector<double> mask = {0.25, 0.5, 0.25};
+            for (int i = 0; i < DESCRIPTOR_NBINS; ++i) {
+
+                int left = i-1 < 0 ? DESCRIPTOR_NBINS-1 : i-1;
+                int right = i+1 >= DESCRIPTOR_NBINS ? 0 : i+1;
+
+                sum_smoothed[i] = sum[left] * mask[0] + mask[1] * sum[i]+ mask[1] * sum[right];
+            }
+
 
             // TODO нормализовать наш вектор дескриптор (подсказка: посчитать его длину и поделить каждую компоненту на эту длину) // done
 
             double vec_sum = 0.;
             for (int i = 0; i < DESCRIPTOR_NBINS; ++i) {
-                vec_sum += std::pow(sum[i], 2);
+                vec_sum += std::pow(sum_smoothed[i], 2);
             }
 
             vec_sum = 1./ std::sqrt(vec_sum);
@@ -441,7 +458,7 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
 
             float *votes = &(descriptor[(hstj * DESCRIPTOR_SIZE + hsti) * DESCRIPTOR_NBINS]); // нашли где будут лежать корзины нашей гистограммы
             for (int bin = 0; bin < DESCRIPTOR_NBINS; ++bin) {
-                votes[bin] = sum[bin] * vec_sum;
+                votes[bin] = sum_smoothed[bin] * vec_sum;
             }
         }
     }
