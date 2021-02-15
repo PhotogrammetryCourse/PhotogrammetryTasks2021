@@ -63,6 +63,7 @@ void phg::SIFT::detectAndCompute(const cv::Mat &originalImg, std::vector<cv::Key
     buildPyramids(img, gaussianPyramid, DoGPyramid);
 
     findLocalExtremasAndDescribe(gaussianPyramid, DoGPyramid, kps, desc);
+    if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "final_desc.png", desc);
 }
 
 void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gaussianPyramid, std::vector<cv::Mat> &DoGPyramid) {
@@ -211,7 +212,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
     std::vector<std::vector<float>> pointsDesc;
 
     // 3.1 Local extrema detection
-    #pragma omp parallel // запустили каждый вычислительный поток процессора
+    //#pragma omp parallel // запустили каждый вычислительный поток процессора
     {
         // каждый поток будет складировать свои точки в свой личный вектор (чтобы не было гонок и не были нужны точки синхронизации)
         std::vector<cv::KeyPoint> thread_points;
@@ -226,7 +227,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                 const cv::Mat DoGs[3] = {prev, cur, next};
 
                 // теперь каждый поток обработает свой кусок картинки 
-                #pragma omp for
+                //#pragma omp for
                 for (ptrdiff_t j = 1; j < cur.rows - 1; ++j) {
                     for (ptrdiff_t i = 1; i + 1 < cur.cols; ++i) {
                         bool is_max = true;
@@ -236,6 +237,9 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                         for (int dy = -1; dy <= 1 && (is_min || is_max); ++dy) {
                         for (int dx = -1; dx <= 1 && (is_min || is_max); ++dx) {
                             // TODO проверить является ли наш центр все еще экстремум по сравнению с соседом DoGs[1+dz].at<float>(j+dy, i+dx) ? (не забудьте учесть что один из соседов - это мы сами)
+                            if (dz == 0 && dx == 0 && dy == 0) continue;
+                            is_max = is_max && (center >= DoGs[1 + dz].at<float>(j + dy, i + dx));
+                            is_min = is_min && (center <= DoGs[1 + dz].at<float>(j + dy, i + dx));
                         }
                         }
                         }
@@ -257,8 +261,15 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
 #endif
                         // TODO сделать фильтрацию слабых точек по слабому контрасту
                         float contrast = center + dvalue;
-                        if (contrast < contrast_threshold / OCTAVE_NLAYERS) // TODO почему порог контрастности должен уменьшаться при увеличении числа слоев в октаве?
+                        if (contrast < contrast_threshold / OCTAVE_NLAYERS) { // TODO почему порог контрастности должен уменьшаться при увеличении числа слоев в октаве?
+                            //Оля: потому что если слоев много, то мы потихобнку увеличиваем sigma. Чем больше слоев, тем меньше изменяется сигма от шага к шагу.
+                            //Таким образом, если сигма изменилоась совсем чуть-чуть, то мы из чуть-чуть размытой картинки вычли просто картинку.
+                            //То есть получились все значения в районе нуля, поскольку вычли друг из друга очень похожие вещи. Соответвенно и ожидать большой контрастности не приходится.
+                            //Если же за один шаг мы размыли картинку сильно, то мы уже боллее явно хотим сигнал, что оригенальгая точка не такая, как окружающий фон.
+                            // А вот почему хорошее уменьше порога контрастности именно такое -- тут думать надо.
                             continue;
+                        }
+
 
                         kp.pt = cv::Point2f((i + 0.5 + dx) * octave_downscale, (j + 0.5 + dy) * octave_downscale);
 
@@ -289,6 +300,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                                 double descrSampleRadius = (DESCRIPTOR_SAMPLE_WINDOW_R * (1.0 + k * (layer - 1)));
                                 if (!buildDescriptor(img, kp.pt.x, kp.pt.y, descrSampleRadius, kp.angle, descriptor))
                                     continue;
+                                std::cout << "description is build\n";
 
                                 thread_points.push_back(kp);
                                 thread_descriptors.push_back(descriptor);
@@ -308,6 +320,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
     }
 
     rassert(pointsDesc.size() == keyPoints.size(), 12356351235124);
+    std::cout << pointsDesc.size() << "\n";
     desc = cv::Mat(pointsDesc.size(), DESCRIPTOR_SIZE * DESCRIPTOR_SIZE * DESCRIPTOR_NBINS, CV_32FC1);
     for (size_t j = 0; j < pointsDesc.size(); ++j) {
         rassert(pointsDesc[j].size() == DESCRIPTOR_SIZE * DESCRIPTOR_SIZE * DESCRIPTOR_NBINS, 1253351412421);
@@ -331,20 +344,22 @@ bool phg::SIFT::buildLocalOrientationHists(const cv::Mat &img, size_t i, size_t 
     for (size_t y = j - radius + 1; y < j + radius; ++y) {
         for (size_t x = i - radius + 1; x < i + radius; ++x) {
             // m(x, y)=(L(x + 1, y) − L(x − 1, y))^2 + (L(x, y + 1) − L(x, y − 1))^2
-            // double magnitude = TODO
+            double magnitude = pow(img.at<float>(y, x + 1) - img.at<float>(y, x - 1), 2) +
+                    pow(img.at<float>(y + 1, x) - img.at<float>(y - 1, x), 2);
 
             // orientation == theta
             // atan( (L(x, y + 1) − L(x, y − 1)) / (L(x + 1, y) − L(x − 1, y)) )
-            // double orientation = TODO // подсказка - используйте atan2(dy, dx)
-//            orientation = orientation * 180.0 / M_PI;
-//            orientation = (orientation + 90.0);
-//            if (orientation <  0.0)   orientation += 360.0;
-//            if (orientation >= 360.0) orientation -= 360.0;
-//            rassert(orientation >= 0.0 && orientation < 360.0, 5361615612);
-//            static_assert(360 % ORIENTATION_NHISTS == 0, "Inappropriate bins number!");
-//            size_t bin = TODO
-//            rassert(bin < ORIENTATION_NHISTS, 361236315613);
-//            sum[bin] += magnitude;
+            double orientation = atan2(img.at<float>(y + 1, x) - img.at<float>(y - 1, x),
+                                       img.at<float>(y, x + 1) - img.at<float>(y, x - 1)); // подсказка - используйте atan2(dy, dx)
+            orientation = orientation * 180.0 / M_PI;
+            orientation = (orientation + 90.0);
+            if (orientation <  0.0)   orientation += 360.0;
+            if (orientation >= 360.0) orientation -= 360.0;
+            rassert(orientation >= 0.0 && orientation < 360.0, 5361615612);
+            static_assert(360 % ORIENTATION_NHISTS == 0, "Inappropriate bins number!");
+            size_t bin = orientation / (360 / ORIENTATION_NHISTS);
+            rassert(bin < ORIENTATION_NHISTS, 361236315613);
+            sum[bin] += magnitude;
             // TODO может быть сгладить получившиеся гистограммы улучшит результат? 
         }
     }
@@ -413,4 +428,5 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
             }
         }
     }
+    return true;
 }
