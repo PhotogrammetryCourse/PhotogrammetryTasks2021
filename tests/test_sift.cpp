@@ -267,7 +267,6 @@ cv::Mat createTranslationMatrix(double dx, double dy) {
     return M;
 }
 
-/*
 TEST (SIFT, MovedTheSameImage) {
     double minRecall = 0.75;
     evaluateDetection(createTranslationMatrix(0.0, 0.0), minRecall);
@@ -404,7 +403,7 @@ TEST (SIFT, Rotate30Scale75) {
     double minRecall = 0.50;
     evaluateDetection(cv::getRotationMatrix2D(cv::Point(200, 256), -angleDegreesClockwise, scale), minRecall);
 }
-*/
+
 
 TEST (SIFT, HerzJesu19RotateM40) {
     cv::Mat jesu19 = cv::imread("data/src/test_sift/herzjesu19.png");
