@@ -102,7 +102,6 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             /*double sigmaPrev = INITIAL_IMG_SIGMA  * pow(k, prevLayer); // sigma1  - сигма до которой дошла картинка на предыдущем слое
             double sigmaCur  = INITIAL_IMG_SIGMA  * pow(k, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
             double sigma = sqrt(sigmaCur*sigmaCur - sigmaPrev*sigmaPrev);                // sigma2  - сигма которую надо добавить чтобы довести sigma1 до sigma12
-             */
 
             // TODO: переделайте это добавочное размытие с варианта "размываем предыдущий слой" на вариант "размываем самый первый слой октавы до степени размытия сигмы нашего текущего слоя"
             //DONE
