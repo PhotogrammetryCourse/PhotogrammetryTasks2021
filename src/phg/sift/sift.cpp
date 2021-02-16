@@ -207,7 +207,7 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
 
 void phg::SIFT::buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint) {
     static cv::Mat descriptorKernel =  createDescriptorKernel();
-//    std::cout << descriptorKernel << std::endl;
+
     // пусть x  будет на позиции (8, 8)
     int delta = DESCRIPTOR_WINDOW / 2;
     int shiftX = std::max(pix.x - delta, 0), shiftY = std::max(pix.y - delta, 0);
@@ -221,7 +221,7 @@ void phg::SIFT::buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, co
                     int yg = DESCRIPTOR_SAMPLES_N * descY + y;
                     int xs = xg + shiftX;
                     int ys = yg + shiftY;
-                    if (xs == 0 || xs == gaussPic.rows - 1 | ys == 0 || ys == gaussPic.cols - 1) continue;
+                    if (xs <= 0 || xs >= gaussPic.rows - 1 | ys <= 0 || ys >= gaussPic.cols - 1) continue;
                     float dx = gaussPic.at<float>(xs + 1, ys) - gaussPic.at<float>(xs - 1, ys);
                     float dy = gaussPic.at<float>(xs, ys + 1) - gaussPic.at<float>(xs, ys - 1);
                     float m = std::sqrt(std::pow(dx, 2.0f) + std::pow(dy, 2.0f));
@@ -231,7 +231,6 @@ void phg::SIFT::buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, co
                     th -= keyPoint.angle;
                     if (th < 0) th += 359.99;
                     if (!(th < 360 && th >= 0)) {
-                        std::cout << th << std::endl;
                         rassert(false, 89798523411);
                     }
                     * (bin + (int) (th / DESCRIPTOR_ANGLE_STEP)) += m * descriptorKernel.at<float>(xg, yg);
@@ -315,14 +314,12 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
             cv::Mat below = DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer - 1];
             cv::Mat current = DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer];
             cv::Mat above = DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer + 1];
-//            int pixelsCounter = 0;
-//            std::cout << "resolution = " << current.rows * current.cols << std::endl;
 
             for (int x = 0; x < current.rows; ++x) {
                 for (int y = 0; y < current.cols; ++y) {
 
                     // границы
-                    if (x == 0 || y == 0 || x == current.rows - 1 || y == current.cols - 1) continue;
+                    if (x <= 0 || y >= 0 || x <= current.rows - 1 || y >= current.cols - 1) continue;
                     float pixelVal = std::fabs(current.at<float>(x, y));
                     // фильтр соседей
                     bool good = true;
@@ -337,7 +334,6 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                         }
                     }
                     if (!good) continue;
-//                    pixelsCounter++;
                     cv::Point2i c(x, y);
                     cv::Point3f delta{};
                     float contrast;
@@ -350,7 +346,6 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                     if (abs(contrast) < contrast_threshold / OCTAVE_NLAYERS) continue;
 
                     // TODO добавить проверку с изгибом, что рассматриваем не линию
-
                     // теперь считаем для точки ориентацию. она может раздвоиться после этого
                     double step = pow(2.0, 1.0 / OCTAVE_NLAYERS);
                     // SIGMA_SCALE -- 1,5, как в статье,
@@ -368,8 +363,6 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                                                      descriptors);
                 }
             }
-//            std::cout << "got " << pixelsCounter << " pixels" << std::endl;
-//            pixelsCounter = 0;
         }
     }
 
