@@ -425,28 +425,28 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
                 }
             }
 
-//            float smooth_sum[DESCRIPTOR_NBINS] = {0.0f};
-//            smooth_sum[0] = sum[DESCRIPTOR_NBINS - 1] * 0.2 + sum[0] * 0.6 + sum[1] * 0.2;
-//            for (size_t bin = 1; bin < DESCRIPTOR_NBINS - 1; bin++) {
-//                smooth_sum[bin] = sum[bin - 1] * 0.2 + sum[bin] * 0.6 + sum[bin + 1] * 0.2;
-//            }
-//            smooth_sum[DESCRIPTOR_NBINS - 1] = sum[DESCRIPTOR_NBINS - 2] * 0.2 + sum[DESCRIPTOR_NBINS - 1] * 0.6 + sum[0] * 0.2;
+            float smooth_sum[DESCRIPTOR_NBINS] = {0.0f};
+            smooth_sum[0] = sum[DESCRIPTOR_NBINS - 1] * 0.2 + sum[0] * 0.6 + sum[1] * 0.2;
+            for (size_t bin = 1; bin < DESCRIPTOR_NBINS - 1; bin++) {
+                smooth_sum[bin] = sum[bin - 1] * 0.2 + sum[bin] * 0.6 + sum[bin + 1] * 0.2;
+            }
+            smooth_sum[DESCRIPTOR_NBINS - 1] = sum[DESCRIPTOR_NBINS - 2] * 0.2 + sum[DESCRIPTOR_NBINS - 1] * 0.6 + sum[0] * 0.2;
 
             // TODO done нормализовать наш вектор дескриптор (подсказка: посчитать его длину и поделить каждую компоненту на эту длину)
 
             double normL2 = 0;
 
             for (int i = 0; i < DESCRIPTOR_NBINS; i++) {
-                normL2 += sum[i] * sum[i];
+                normL2 += smooth_sum[i] * smooth_sum[i];
             }
             normL2 = sqrt(normL2);
             for (int i = 0; i < DESCRIPTOR_NBINS; i++) {
-                sum[i] /= normL2;
+                smooth_sum[i] /= normL2;
             }
 
             float *votes = &(descriptor[(hstj * DESCRIPTOR_SIZE + hsti) * DESCRIPTOR_NBINS]); // нашли где будут лежать корзины нашей гистограммы
             for (int bin = 0; bin < DESCRIPTOR_NBINS; ++bin) {
-                votes[bin] = sum[bin];
+                votes[bin] = smooth_sum[bin];
             }
         }
     }
