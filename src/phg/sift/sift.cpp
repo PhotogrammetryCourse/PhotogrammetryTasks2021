@@ -5,6 +5,8 @@
 
 #include <libutils/rasserts.h>
 
+using namespace std;
+
 // Ссылки:
 // [lowe04] - Distinctive Image Features from Scale-Invariant Keypoints, David G. Lowe, 2004
 //
@@ -23,7 +25,7 @@
 #define OCTAVE_DOG_IMAGES           (OCTAVE_NLAYERS + 2)
 #define INITIAL_IMG_SIGMA           0.75                 // предполагаемая степень размытия изначальной картинки
 #define INPUT_IMG_PRE_BLUR_SIGMA    1.0                  // сглаживание изначальной картинки
-   
+
 #define SUBPIXEL_FITTING_ENABLE      0    // такие тумблеры включающие/выключающие очередное улучшение алгоритма позволяют оценить какой вклад эта фича вносит в качество результата если в рамках уже готового алгоритма попробовать ее включить/выключить
 
 #define ORIENTATION_NHISTS           36   // число корзин при определении ориентации ключевой точки через гистограммы
@@ -79,10 +81,10 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             int layer = 0;
             size_t prevOctave = octave - 1;
             // берем картинку с предыдущей октавы и уменьшаем ее в два раза без какого бы то ни было дополнительного размытия (сигмы должны совпадать)
-            // cv::Mat img = gaussianPyramid[ TODO ].clone();
+            cv::Mat img = gaussianPyramid[prevOctave * OCTAVE_GAUSSIAN_IMAGES + layer].clone();
             // тут есть очень важный момент, мы должны указать fx=0.5, fy=0.5 иначе при нечетном размере картинка будет не идеально 2 пикселя в один схлопываться - а слегка смещаться
-            // cv::resize(img, img, cv::Size( TODO , TODO ), 0.5, 0.5, cv::INTER_NEAREST);
-            // gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer] = img;
+            cv::resize(img, img, cv::Size(0, 0), 0.5, 0.5, cv::INTER_NEAREST);
+            gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer] = img;
         }
 
 //        #pragma omp parallel for // TODO: если выполните TODO про "размытие из изначального слоя октавы" ниже - раскоментируйте это распараллеливание, ведь теперь слои считаются независимо (из самого первого), проверьте что результат на картинках не изменился
@@ -90,8 +92,8 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             size_t prevLayer = layer - 1;
 
             // если есть два последовательных гауссовых размытия с sigma1 и sigma2, то результат будет с sigma12=sqrt(sigma1^2 + sigma2^2) => sigma2=sqrt(sigma12^2-sigma1^2)
-            double sigmaPrev = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, prevLayer); // sigma1  - сигма до которой дошла картинка на предыдущем слое
-            double sigmaCur  = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
+            double sigmaPrev = INITIAL_IMG_SIGMA * pow(k, prevLayer); // sigma1  - сигма до которой дошла картинка на предыдущем слое
+            double sigmaCur  = INITIAL_IMG_SIGMA * pow(k, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
             double sigma = sqrt(sigmaCur*sigmaCur - sigmaPrev*sigmaPrev);                // sigma2  - сигма которую надо добавить чтобы довести sigma1 до sigma12
 
             // TODO: переделайте это добавочное размытие с варианта "размываем предыдущий слой" на вариант "размываем самый первый слой октавы до степени размытия сигмы нашего текущего слоя"
@@ -108,10 +110,10 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
 
     for (size_t octave = 0; octave < NOCTAVES; ++octave) {
         for (size_t layer = 0; layer < OCTAVE_GAUSSIAN_IMAGES; ++layer) {
-            double sigmaCur = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, layer);
+            double sigmaCur = INITIAL_IMG_SIGMA * pow(k, layer);
             if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramid/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + ".png", gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer]);
             // TODO: какие ожидания от картинок можно придумать? т.е. как дополнительно проверить что работает разумно?
-            // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера? 
+            // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера?
         }
     }
 
@@ -143,10 +145,20 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
 
     for (size_t octave = 0; octave < NOCTAVES; ++octave) {
         for (size_t layer = 0; layer < OCTAVE_DOG_IMAGES; ++layer) {
-            double sigmaCur = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, layer);
-            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramidDoG/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + ".png", DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer]);
+            double sigmaCur = INITIAL_IMG_SIGMA * pow(k, layer);
+            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramidDoG/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + ".png", DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer] * 100);
             // TODO: какие ожидания от картинок можно придумать? т.е. как дополнительно проверить что работает разумно?
-            // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы DoG? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера? 
+            // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы DoG? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера?
+            // std::cout << "HELLO " << octave << "\n";
+
+            // cv::Mat imgCD = DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer];
+            // for (ptrdiff_t j = 1; j < imgCD.rows - 1; ++j) {
+            //   for (ptrdiff_t i = 1; i + 1 < imgCD.cols; ++i)
+            //     {
+            //       std::cout << "value at " << j << " " << i << " = " << imgCD.at<float>(j, i) << "\n";
+            //     };
+            // };
+
         }
     }
 }
@@ -192,7 +204,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                 const cv::Mat next = DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer + 1];
                 const cv::Mat DoGs[3] = {prev, cur, next};
 
-                // теперь каждый поток обработает свой кусок картинки 
+                // теперь каждый поток обработает свой кусок картинки
                 #pragma omp for
                 for (ptrdiff_t j = 1; j < cur.rows - 1; ++j) {
                     for (ptrdiff_t i = 1; i + 1 < cur.cols; ++i) {
@@ -203,6 +215,14 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                         for (int dy = -1; dy <= 1 && (is_min || is_max); ++dy) {
                         for (int dx = -1; dx <= 1 && (is_min || is_max); ++dx) {
                             // TODO проверить является ли наш центр все еще экстремум по сравнению с соседом DoGs[1+dz].at<float>(j+dy, i+dx) ? (не забудьте учесть что один из соседов - это мы сами)
+                          if (dx != 0 && dy != 00 && dz != 0) {
+                            float neighb = DoGs[1+dz].at<float>(j+dy, i+dx);
+                            if (center > neighb) {
+                              is_min = false;
+                            } else if (center < neighb) {
+                              is_max = false;
+                            }
+                          }
                         }
                         }
                         }
@@ -232,7 +252,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                         kp.response = fabs(contrast);
 
                         const double k = pow(2.0, 1.0 / OCTAVE_NLAYERS); // [lowe04] k = 2^{1/s} а у нас s=OCTAVE_NLAYERS
-                        double sigmaCur = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, layer);
+                        double sigmaCur = INITIAL_IMG_SIGMA * pow(k, layer);
                         kp.size = 2.0 * sigmaCur * 5.0;
 
                         // 5 Orientation assignment
@@ -251,7 +271,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                                 // TODO добавьте уточнение угла наклона - может помочь определенная выше функция parabolaFitting(float x0, float x1, float x2)
                                 kp.angle = (bin + 0.5) * (360.0 / ORIENTATION_NHISTS);
                                 rassert(kp.angle >= 0.0 && kp.angle <= 360.0, 123512412412);
-                                
+
                                 std::vector<float> descriptor;
                                 double descrSampleRadius = (DESCRIPTOR_SAMPLE_WINDOW_R * (1.0 + k * (layer - 1)));
                                 if (!buildDescriptor(img, kp.pt.x, kp.pt.y, descrSampleRadius, kp.angle, descriptor))
@@ -298,21 +318,23 @@ bool phg::SIFT::buildLocalOrientationHists(const cv::Mat &img, size_t i, size_t 
     for (size_t y = j - radius + 1; y < j + radius; ++y) {
         for (size_t x = i - radius + 1; x < i + radius; ++x) {
             // m(x, y)=(L(x + 1, y) − L(x − 1, y))^2 + (L(x, y + 1) − L(x, y − 1))^2
-            // double magnitude = TODO
+          double magnitude = std::sqrt (std::pow( (img.at<float>(x+1, y) - img.at<float>(x-1, y)) , 2) +
+                                        std::pow( (img.at<float>(x, y+1) - img.at<float>(x, y-1)) , 2));
 
             // orientation == theta
             // atan( (L(x, y + 1) − L(x, y − 1)) / (L(x + 1, y) − L(x − 1, y)) )
-            // double orientation = TODO // подсказка - используйте atan2(dy, dx)
-//            orientation = orientation * 180.0 / M_PI;
-//            orientation = (orientation + 90.0);
-//            if (orientation <  0.0)   orientation += 360.0;
-//            if (orientation >= 360.0) orientation -= 360.0;
-//            rassert(orientation >= 0.0 && orientation < 360.0, 5361615612);
-//            static_assert(360 % ORIENTATION_NHISTS == 0, "Inappropriate bins number!");
-//            size_t bin = TODO
-//            rassert(bin < ORIENTATION_NHISTS, 361236315613);
-//            sum[bin] += magnitude;
-            // TODO может быть сгладить получившиеся гистограммы улучшит результат? 
+          double orientation = std::atan2 ((img.at<float>(x, y+1) - img.at<float>(x, y-1)),
+                                           (img.at<float>(x+1, y) - img.at<float>(x-1, y)));
+           orientation = orientation * 180.0 / M_PI;
+           orientation = (orientation + 90.0);
+           if (orientation <  0.0)   orientation += 360.0;
+           if (orientation >= 360.0) orientation -= 360.0;
+           rassert(orientation >= 0.0 && orientation < 360.0, 5361615612);
+           static_assert(360 % ORIENTATION_NHISTS == 0, "Inappropriate bins number!");
+           size_t bin = (int)orientation / (360 / ORIENTATION_NHISTS);
+           rassert(bin < ORIENTATION_NHISTS, 361236315613);
+           sum[bin] += magnitude;
+            // TODO может быть сгладить получившиеся гистограммы улучшит результат?
         }
     }
 
@@ -340,32 +362,37 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
                 for (int smpi = 0; smpi < DESCRIPTOR_SAMPLES_N; ++smpi) { // перебираем столбик очередного замера для текущей гистограммы
                     for (int smpy = 0; smpy < smpW; ++smpy) { // перебираем ряд пикселей текущего замера
                         for (int smpx = 0; smpx < smpW; ++smpx) { // перебираем столбик пикселей текущего замера
-//                            cv::Point2f shift(((-DESCRIPTOR_SIZE/2.0 + hsti) * DESCRIPTOR_SAMPLES_N + smpi) * smpW, TODO);
-//                            std::vector<cv::Point2f> shiftInVector(1, shift);
-//                            cv::transform(shiftInVector, shiftInVector, relativeShiftRotation); // преобразуем относительный сдвиг с учетом ориентации ключевой точки
-//                            shift = shiftInVector[0];
+                           cv::Point2f shift(((-DESCRIPTOR_SIZE/2.0 + hsti) * DESCRIPTOR_SAMPLES_N + smpi) * smpW,
+                                             ((-DESCRIPTOR_SIZE/2.0 + hstj) * DESCRIPTOR_SAMPLES_N + smpj) * smpW);
+                           std::vector<cv::Point2f> shiftInVector(1, shift);
+                           cv::transform(shiftInVector, shiftInVector, relativeShiftRotation); // преобразуем относительный сдвиг с учетом ориентации ключевой точки
+                           shift = shiftInVector[0];
 
-//                            int x = (int) (px + shift.x);
-//                            int y = TODO;
+                           int x = (int) (px + shift.x);
+                           int y = (int) (py + shift.y);
 
-//                            if (y - 1 < 0 || y + 1 > img.rows || x - 1 < 0 || x + 1 > img.cols)
-//                                return false;
+                           if (y - 1 < 0 || y + 1 > img.rows || x - 1 < 0 || x + 1 > img.cols)
+                               return false;
 
-//                            double magnitude = TODO
 
-//                            double orientation = atan2(TODO);
-//                            orientation = orientation * 180.0 / M_PI;
-//                            orientation = (orientation + 90.0);
-//                            if (orientation <  0.0)   orientation += 360.0;
-//                            if (orientation >= 360.0) orientation -= 360.0;
+                           double magnitude = std::sqrt (std::pow( (img.at<float>(x+1, y) - img.at<float>(x-1, y)) , 2) +
+                                                         std::pow( (img.at<float>(x, y+1) - img.at<float>(x, y-1)) , 2));
+
+                           double orientation = std::atan2 ((img.at<float>(x, y+1) - img.at<float>(x, y-1)),
+                                                            (img.at<float>(x+1, y) - img.at<float>(x-1, y)));
+
+                           orientation = orientation * 180.0 / M_PI;
+                           orientation = (orientation + 90.0);
+                           if (orientation <  0.0)   orientation += 360.0;
+                           if (orientation >= 360.0) orientation -= 360.0;
 
                               // TODO за счет чего этот вклад будет сравниваться с этим же вкладом даже если эта картинка будет повернута? что нужно сделать с ориентацией каждого градиента из окрестности этой ключевой точки?
 
-//                            rassert(orientation >= 0.0 && orientation < 360.0, 3515215125412);
-                            static_assert(360 % DESCRIPTOR_NBINS == 0, "Inappropriate bins number!");
-//                            size_t bin = TODO;
-//                            rassert(bin < DESCRIPTOR_NBINS, 361236315613);
-//                            sum[bin] += magnitude;
+                           rassert(orientation >= 0.0 && orientation < 360.0, 3515215125412);
+                           static_assert(360 % DESCRIPTOR_NBINS == 0, "Inappropriate bins number!");
+                           size_t bin = (int)orientation / (360 / DESCRIPTOR_NBINS);
+                           rassert(bin < DESCRIPTOR_NBINS, 361236315613);
+                           sum[bin] += magnitude;
                             // TODO хорошая идея добавить трилинейную интерполяцию как предложено в статье, или хотя бы сэмулировать ее - сгладить получившиеся гистограммы
                         }
                     }
@@ -378,6 +405,21 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
             for (int bin = 0; bin < DESCRIPTOR_NBINS; ++bin) {
                 votes[bin] = sum[bin];
             }
+
+            double normfact = 0.0;
+
+            for (int ii = 0; ii < (DESCRIPTOR_SIZE * DESCRIPTOR_SIZE * DESCRIPTOR_NBINS); ++ii) {
+              normfact += std::pow(descriptor[ii], 2);
+            }
+
+            normfact = 1.0 / std::sqrt(normfact);
+
+            for (int ii = 0; ii < (DESCRIPTOR_SIZE * DESCRIPTOR_SIZE * DESCRIPTOR_NBINS); ++ii) {
+              descriptor[ii] *= normfact;
+            }
+
         }
     }
+
+    return true;
 }
