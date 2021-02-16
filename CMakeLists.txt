@@ -16,6 +16,7 @@ else()
 endif()
 
 find_package(OpenCV 4.5.1 REQUIRED)
+
 #      Linux:
 # скачайте Source code (opencv-4.5.1.zip) отсюда - https://github.com/opencv/opencv/releases распакуйте и скомпилируйте:
 # wget https://github.com/opencv/opencv/archive/4.5.1.zip
