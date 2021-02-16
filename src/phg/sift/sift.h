@@ -6,7 +6,6 @@
 
 
 namespace phg {
-
     class SIFT {
     public:
         // Можете добавить дополнительных параметров со значениями по умолчанию в конструктор если хотите
@@ -17,16 +16,16 @@ namespace phg {
 
     protected: // Можете менять внутренние детали реализации включая разбиение на эти методы (это просто набросок):
 
-        void buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gaussianPyramid, std::vector<cv::Mat> &DoGPyramid);
+        static void buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gaussianPyramid, std::vector<cv::Mat> &DoGPyramid);
 
         void findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussianPyramid, const std::vector<cv::Mat> &DoGPyramid,
-                                          std::vector<cv::KeyPoint> &keyPoints, cv::Mat &desc);
+                                          std::vector<cv::KeyPoint> &keyPoints, cv::Mat &desc) const;
 
-        bool buildLocalOrientationHists(const cv::Mat &img, size_t i, size_t j, size_t radius,
-                                        std::vector<float> &votes, float &biggestVote);
+        static void getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const cv::Mat &kernel, const cv::Point2i &pix,
+                                              const cv::Point2f &point, float sigma, float contrast,
+                                              std::vector<cv::KeyPoint> &points, std::vector<cv::Mat> &descriptors);
 
-        bool buildDescriptor(const cv::Mat &img, float px, float py, double descrRadius, float angle,
-                             std::vector<float> &descriptor);
+        static void buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint);
 
         double contrast_threshold;
     };

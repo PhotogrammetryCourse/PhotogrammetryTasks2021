@@ -13,7 +13,6 @@
 
 #include "utils/test_utils.h"
 
-#define PI 3.14159265
 // TODO закомментить! 1
 #define SHOW_RESULTS                1   // если вам хочется сразу видеть результат в окошке - переключите в 1, но не забудьте выключить перед коммитом (иначе бот в CI будет ждать веками)
 #define MAX_ACCEPTED_PIXEL_ERROR    0.01 // максимальное расстояние в пикселях (процент от ширины картинки) между ключевыми точками чтобы их можно было зачесть как "почти совпавшие" (это очень завышенный порог, по-хорошему должно быть 0.5 например)
@@ -115,15 +114,17 @@ void evaluateDetection(const cv::Mat &M, double minRecall, cv::Mat img0=cv::Mat(
                 detector->compute(img1, kps1, desc1);
             } else if (method == 2) {
                 // TODO remove 'return' and uncomment
-                return;
-//                method_name = "SIFT_MY";
-//                log_prefix = "[SIFT_MY] ";
-//                phg::SIFT mySIFT;
-//                mySIFT.detectAndCompute(img0, kps0, desc0);
-//                mySIFT.detectAndCompute(img1, kps1, desc1);
+//                return;
+                method_name = "SIFT_MY";
+                log_prefix = "[SIFT_MY] ";
+                phg::SIFT mySIFT;
+                mySIFT.detectAndCompute(img0, kps0, desc0);
+                mySIFT.detectAndCompute(img1, kps1, desc1);
             } else {
-                rassert(false, 13532513412); // это не проверка как часть тестирования, это проверка что число итераций в цикле и if-else ветки все еще согласованы и не разошлись
+                rassert(false,
+                        13532513412); // это не проверка как часть тестирования, это проверка что число итераций в цикле и if-else ветки все еще согласованы и не разошлись
             }
+
 
             std::cout << log_prefix << "Points detected: " << kps0.size() << " -> " << kps1.size() << " (in " << t.elapsed() << " sec)" << std::endl;
 
@@ -257,6 +258,7 @@ void evaluateDetection(const cv::Mat &M, double minRecall, cv::Mat img0=cv::Mat(
             }
         }
     }
+//    return;
 }
 
 // создаем матрицу описывающую преобразование пространства "сдвиг на вектор"
@@ -286,28 +288,29 @@ TEST (SIFT, MovedTheSameImage) {
 //    cv::Mat desc;
 //
 //    algo.detectAndCompute(img0, v, desc);
-//    std::cout << dog.size() << std::endl;
+//    std::cout << v.size() << std::endl;
+//}
 
-namespace {
-    void getKernel(cv::Mat &kernel, int kernelSize, float sigma) {
-        kernel = cv::Mat::zeros(kernelSize, kernelSize, CV_32FC1);
-        int mid = kernel.rows / 2;
-        kernel.at<float>(mid, mid) = 1;
-        std::cout << kernel << std::endl;
-        cv::GaussianBlur(kernel, kernel, {0, 0}, sigma);
-    }
-}
-    int main () {
-        cv::Mat m1(1, 12, CV_32FC1);
-        std::cout << m1 << std::endl;
-        auto it =  m1.begin<float>() + 2;
-        *it = 4.0;
-        *(it + 1) = 5.0;
-        std::cout << m1 << std::endl;
-
-
-        return 0;
-    }
+//namespace {
+//    void getKernel(cv::Mat &kernel, int kernelSize, float sigma) {
+//        kernel = cv::Mat::zeros(kernelSize, kernelSize, CV_32FC1);
+//        int mid = kernel.rows / 2;
+//        kernel.at<float>(mid, mid) = 1;
+//        std::cout << kernel << std::endl;
+//        cv::GaussianBlur(kernel, kernel, {0, 0}, sigma);
+//    }
+//}
+//    int main () {
+//        cv::Mat m1(1, 12, CV_32FC1);
+//        std::cout << m1 << std::endl;
+//        auto it =  m1.begin<float>() + 2;
+//        *it = 4.0;
+//        *(it + 1) = 5.0;
+//        std::cout << m1 << std::endl;
+//
+//
+//        return 0;
+//    }
 //}
 
 //int main() {
@@ -326,10 +329,10 @@ namespace {
 //    std::cout << img1 << std::endl;
 //}
 
-//TEST (SIFT, MovedImageRight) {
-//    double minRecall = 0.75;
-//    evaluateDetection(createTranslationMatrix(50.0, 0.0), minRecall);
-//}
+TEST (SIFT, MovedImageRight) {
+    double minRecall = 0.75;
+    evaluateDetection(createTranslationMatrix(50.0, 0.0), minRecall);
+}
 //
 //TEST (SIFT, MovedImageLeft) {
 //    double minRecall = 0.75;
