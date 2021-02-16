@@ -319,7 +319,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                 for (int y = 0; y < current.cols; ++y) {
 
                     // границы
-                    if (x <= 0 || y >= 0 || x <= current.rows - 1 || y >= current.cols - 1) continue;
+                    if (x <= 0 || y <= 0 || x >= current.rows - 1 || y >= current.cols - 1) continue;
                     float pixelVal = std::fabs(current.at<float>(x, y));
                     // фильтр соседей
                     bool good = true;
