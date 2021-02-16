@@ -7,6 +7,7 @@
 
 namespace phg {
     class SIFT {
+
     public:
         // Можете добавить дополнительных параметров со значениями по умолчанию в конструктор если хотите
         SIFT(double contrast_threshold = 0.5) : contrast_threshold(contrast_threshold) {}

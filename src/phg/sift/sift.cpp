@@ -4,6 +4,7 @@
 #include <opencv2/imgproc.hpp>
 
 #include <libutils/rasserts.h>
+#include <libutils/timer.h>
 
 // Ссылки:
 // [lowe04] - Distinctive Image Features from Scale-Invariant Keypoints, David G. Lowe, 2004
@@ -16,6 +17,7 @@
 
 #define DEBUG_ENABLE     1
 #define DEBUG_PATH       std::string("data/debug/test_sift/debug/")
+//#define INCREMENTAL_SIGMA 1
 
 #define NOCTAVES                    3                    // число октав
 #define OCTAVE_NLAYERS              3                    // в [lowe04] это число промежуточных степеней размытия картинки в рамках одной октавы обозначается - s, т.е. s слоев в каждой октаве
@@ -29,13 +31,13 @@
 
 #define ORIENTATION_NHISTS           36   // число корзин при определении ориентации ключевой точки через гистограммы
 #define ORIENTATION_WINDOW           16    // минимальный радиус окна в рамках которого будет выбрана ориентиация (в пикселях), R=3 => 5x5 окно
-#define ORIENTATION_VOTES_PEAK_RATIO 0.80 // 0.8 => если гистограмма какого-то направления получила >= 80% от максимального чиссла голосов - она тоже победила
+#define ORIENTATION_VOTES_PEAK_RATIO 0.8 // 0.8 => если гистограмма какого-то направления получила >= 80% от максимального чиссла голосов - она тоже победила
 
 #define DESCRIPTOR_SIZE            4 // 4x4 гистограммы декскриптора
 #define DESCRIPTOR_NBINS           8 // 8 корзин-направлений в каждой гистограмме дескриптора (4х4 гистограммы, каждая по 8 корзин, итого 4x4x8=128 значений в дескрипторе)
 #define DESCRIPTOR_SAMPLES_N       4 // 4x4 замера для каждой гистограммы дескриптора (всего гистограмм 4х4) итого 16х16 замеров
 #define DESCRIPTOR_SAMPLE_WINDOW_R 1.0 // минимальный радиус окна в рамках которого строится гистограмма из 8 корзин-направлений (т.е. для каждого из 16 элементов дескриптора), R=1 => 1x1 окно
-
+#define MAX_POINTS_FROM_ANGLES 3
 
 #define DESCRIPTOR_WINDOW 16 // 16x16 для дескриптора точки
 #define DESCRIPTOR_ANGLE_STEP 45
@@ -44,11 +46,30 @@
 #define PI 3.14159265
 
 namespace {
-    cv::Mat createDescriptorKernel() {
+    timer t;
+    std::string log_prefix = "[MY SIFT TIMING] ";
+
+    // https://stackoverflow.com/a/29730828
+    cv::Point2f rotate2d(const cv::Point2f& inPoint, const float& angRad)
+    {
+        cv::Point2f outPoint;
+        //CW rotation
+        outPoint.x = std::cos(angRad)*inPoint.x - std::sin(angRad)*inPoint.y;
+        outPoint.y = std::sin(angRad)*inPoint.x + std::cos(angRad)*inPoint.y;
+        return outPoint;
+    }
+
+    cv::Point2f rotatePoint(const cv::Point2f& inPoint, const cv::Point2f& center, const float& angDeg)
+    {
+
+        return rotate2d(inPoint - center, angDeg * PI / 180.0) + center;
+    }
+
+    cv::Mat createDescriptorKernel(float sigma) {
         cv::Mat kernel = cv::Mat::zeros(DESCRIPTOR_WINDOW + 1, DESCRIPTOR_WINDOW + 1, CV_32FC1);
         int mid = kernel.rows / 2;
         kernel.at<float>(mid, mid) = 1;
-        cv::GaussianBlur(kernel, kernel, {0, 0}, DESCRIPTOR_WINDOW / 2);
+        cv::GaussianBlur(kernel, kernel, {0, 0}, sigma);
         return kernel;
     }
 
@@ -174,25 +195,34 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
     double step = pow(2.0, 1.0 / OCTAVE_NLAYERS);
 
     double currentSigma = INPUT_IMG_PRE_BLUR_SIGMA;
+    if (DEBUG_ENABLE) t.restart();
 
     for (int octave = 0; octave < NOCTAVES; ++octave) {
         gaussianPyramid.push_back(layerBase);
 
         // заполним октаву гауссиан
-        for (int i = 0; i < OCTAVE_GAUSSIAN_IMAGES - 1; ++i) {
-            currentSigma *= step;
+        for (int layer = 1; layer < OCTAVE_GAUSSIAN_IMAGES; ++layer) {
             cv::Mat blurred;
+#ifdef INCREMENTAL_SIGMA
+            currentSigma *= step;
             cv::GaussianBlur(layerBase, blurred, {0, 0}, currentSigma, currentSigma);
-            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "03_g_" + to_string(octave) + "_i_" + to_string(i) + ".png", blurred);
+            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "03_g_" + to_string(octave) + "_i_" + to_string(layer) + "0.png", blurred);
+#else
+            double sigmaPrev = INITIAL_IMG_SIGMA * pow(step, layer - 1); // sigma1  - сигма до которой дошла картинка на предыдущем слое
+            double sigmaCur  = INITIAL_IMG_SIGMA  * pow(step, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
+            currentSigma = sqrt(sigmaCur*sigmaCur - sigmaPrev*sigmaPrev);
+            cv::GaussianBlur(gaussianPyramid.back(), blurred, {0, 0}, currentSigma, currentSigma);
+            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "03_g_" + to_string(octave) + "_i_" + to_string(layer) + "1.png", blurred);
+#endif
             gaussianPyramid.push_back(blurred);
         }
 
         // теперь октаву лаплассиан
-        for (int i = 0; i < OCTAVE_DOG_IMAGES; ++i) {
-            uint32_t blurredIdx = OCTAVE_GAUSSIAN_IMAGES * octave + i;
+        for (int layer = 0; layer < OCTAVE_DOG_IMAGES; ++layer) {
+            uint32_t blurredIdx = OCTAVE_GAUSSIAN_IMAGES * octave + layer;
             cv::Mat dog;
             cv::subtract(gaussianPyramid[blurredIdx + 1], gaussianPyramid[blurredIdx], dog);
-            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "04_dog_" + to_string(octave) + "_i_" + to_string(i) + ".png", dog);
+            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "04_dog_" + to_string(octave) + "_i_" + to_string(layer) + ".png", dog);
             DoGPyramid.push_back(dog);
         }
 
@@ -200,13 +230,17 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
         cv::Mat nextLayerBase;
         cv::resize(gaussianPyramid.back(), nextLayerBase, {}, 0.5, 0.5, cv::INTER_NEAREST);
         layerBase = nextLayerBase;
+#ifdef INCREMENTAL_SIGMA
         currentSigma = INPUT_IMG_PRE_BLUR_SIGMA;
+#endif
     }
+
+    if (DEBUG_ENABLE) std::cout << log_prefix << "buildPyramids: " << t.elapsed() << std::endl;
 }
 
 
 void phg::SIFT::buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint) {
-    static cv::Mat descriptorKernel =  createDescriptorKernel();
+    cv::Mat descriptorKernel =  createDescriptorKernel(keyPoint.size / 3);
 
     // пусть x  будет на позиции (8, 8)
     int delta = DESCRIPTOR_WINDOW / 2;
@@ -219,8 +253,11 @@ void phg::SIFT::buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, co
                 for (int y = 0; y < DESCRIPTOR_SIZE; ++y) {
                     int xg = DESCRIPTOR_SAMPLES_N * descX + x;
                     int yg = DESCRIPTOR_SAMPLES_N * descY + y;
-                    int xs = xg + shiftX;
-                    int ys = yg + shiftY;
+
+                    cv::Point2i ptTransformed =
+                            rotatePoint({(float)(xg + shiftX), (float)(yg + shiftY)}, pix, keyPoint.angle);
+                    int xs = ptTransformed.x;
+                    int ys = ptTransformed.y;
                     if (xs <= 0 || xs >= gaussPic.rows - 1 | ys <= 0 || ys >= gaussPic.cols - 1) continue;
                     float dx = gaussPic.at<float>(xs + 1, ys) - gaussPic.at<float>(xs - 1, ys);
                     float dy = gaussPic.at<float>(xs, ys + 1) - gaussPic.at<float>(xs, ys - 1);
@@ -231,7 +268,7 @@ void phg::SIFT::buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, co
                     th -= keyPoint.angle;
                     if (th < 0) th += 359.99;
                     if (!(th < 360 && th >= 0)) {
-                        rassert(false, 89798523411);
+                        continue;
                     }
                     * (bin + (int) (th / DESCRIPTOR_ANGLE_STEP)) += m * descriptorKernel.at<float>(xg, yg);
                 }
@@ -289,14 +326,14 @@ void phg::SIFT::getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const 
             float angle = shift < 0 ? -shift * deg0 + (1 + shift) * deg1 : (1 - shift) * deg1 + shift * deg2;
             if (angle >= 360) angle -= 360;
             counter ++;
-            cv::KeyPoint kp{point, 2 * sigma, angle, contrast};
+            cv::KeyPoint kp{point, 6 * sigma, angle, contrast};
             points.push_back(kp);
 
             cv::Mat descriptor(1, KP_DESCRIPTOR_SIZE, CV_32FC1);
             buildDescriptor(descriptor, gaussPic, pix, kp);
             descriptors.push_back(descriptor);
         }
-        if (counter >= 3) break;
+        if (counter >= MAX_POINTS_FROM_ANGLES) break;
     }
 
 }
@@ -305,7 +342,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                                              const std::vector<cv::Mat> &DoGPyramid,
                                              std::vector<cv::KeyPoint> &keyPoints, cv::Mat &desc) const {
     std::vector<cv::Mat> descriptors;
-
+    if (DEBUG_ENABLE) t.restart();
     for (int octave = 0; octave < NOCTAVES; ++octave) {
         float octaveScale = std::pow(2.0, octave);
 
@@ -350,7 +387,12 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                     double step = pow(2.0, 1.0 / OCTAVE_NLAYERS);
                     // SIGMA_SCALE -- 1,5, как в статье,
                     // TODO переделать сигму с аппроксимацией
+                    float prevSigma = INITIAL_IMG_SIGMA * pow(step, layer);
                     float currentSigma = INITIAL_IMG_SIGMA * pow(step, layer + 1);
+                    float nextSigma = INITIAL_IMG_SIGMA * pow(step, layer + 2);
+                    currentSigma = delta.z < 0 ?  currentSigma = -delta.z * prevSigma + (1 + delta.z) * currentSigma :
+                                   (1 - delta.z) * currentSigma + delta.z * nextSigma;
+
                     float windowSigma = SIGMA_SCALE * currentSigma;
                     cv::Mat gaussianKernel;
                     getKernel(gaussianKernel, windowSigma);
@@ -365,9 +407,11 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
             }
         }
     }
-
+    if (DEBUG_ENABLE) std::cout << log_prefix << "findLocalExtremasAndDescribe: count time: " << t.elapsed() << std::endl;
+    if (DEBUG_ENABLE) t.restart();
     desc = cv::Mat(descriptors.size(), KP_DESCRIPTOR_SIZE, CV_32FC1);
     for (int i = 0; i < desc.rows; ++i) {
         descriptors[i].copyTo(desc.row(i));
     }
+    if (DEBUG_ENABLE) std::cout << log_prefix << "findLocalExtremasAndDescribe: merge time: " << t.elapsed() << std::endl;
 }
