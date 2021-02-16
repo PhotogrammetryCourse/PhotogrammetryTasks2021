@@ -91,9 +91,11 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
         for (ptrdiff_t layer = 1; layer < OCTAVE_GAUSSIAN_IMAGES; ++layer) {
 
             // если есть два последовательных гауссовых размытия с sigma1 и sigma2, то результат будет с sigma12=sqrt(sigma1^2 + sigma2^2) => sigma2=sqrt(sigma12^2-sigma1^2)
+
             double sigmaInit = INITIAL_IMG_SIGMA;                     // sigma1  - сигма до которой дошла картинка на первом слое в октаве
             double sigmaCur  = INITIAL_IMG_SIGMA * pow(k, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
             double sigma = sqrt(sigmaCur * sigmaCur - sigmaInit * sigmaInit);            // sigma2  - сигма которую надо добавить чтобы довести sigma1 до sigma12
+
 
             // проверьте - картинки отладочного вывода выглядят один-в-один до/после? (посмотрите на них туда-сюда быстро мигая)
 
