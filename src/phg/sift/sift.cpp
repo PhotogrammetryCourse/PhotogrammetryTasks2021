@@ -15,7 +15,7 @@
 // 3) https://github.com/opencv/opencv/blob/1834eed8098aa2c595f4d1099eeaa0992ce8b321/modules/features2d/src/sift.dispatch.cpp (адаптация кода с первой ссылки)
 // 4) https://github.com/opencv/opencv/blob/1834eed8098aa2c595f4d1099eeaa0992ce8b321/modules/features2d/src/sift.simd.hpp (адаптация кода с первой ссылки)
 
-#define DEBUG_ENABLE     1
+#define DEBUG_ENABLE     0
 #define DEBUG_PATH       std::string("data/debug/test_sift/debug/")
 #define INCREMENTAL_SIGMA 1
 
