@@ -207,7 +207,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
     std::vector<std::vector<float>> pointsDesc;
 
     // 3.1 Local extrema detection
-//    #pragma omp parallel // запустили каждый вычислительный поток процессора
+ #pragma omp parallel // запустили каждый вычислительный поток процессора
     {
         // каждый поток будет складировать свои точки в свой личный вектор (чтобы не было гонок и не были нужны точки синхронизации)
         std::vector<cv::KeyPoint> thread_points;
@@ -411,14 +411,14 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
                     int x = (int) (px + shift.x);
                     int y =  (int) (py + shift.y); // done
 
-                    if (y - 1 < 0 || y + 1 > img.rows || x - 1 < 0 || x + 1 > img.cols)
+                    if (y - 1 < 0 || y + 1 >= img.rows || x - 1 < 0 || x + 1 >= img.cols)
                         return false;
 
                     float xx = img.at<float>(y + 1, x) - img.at<float>(y - 1, x);
                     float yy = img.at<float>(y, x + 1) - img.at<float>(y, x - 1);
                     double magnitude = std::sqrt(std::pow(xx, 2) + std::pow(yy,2));// done
 
-                    double orientation = atan2(xx,yy); // done
+                    double orientation = atan2(yy,xx); // done
                     orientation = orientation * 180.0 / M_PI;
                     orientation = (orientation + 90.0);
                     if (orientation <  0.0)   orientation += 360.0;
