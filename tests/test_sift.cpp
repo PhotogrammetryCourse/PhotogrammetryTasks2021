@@ -218,6 +218,11 @@ void evaluateDetection(const cv::Mat &M, double minRecall, cv::Mat img0=cv::Mat(
             if (angle_diff_sum != 0.0) {
                 std::cout << log_prefix << "average angle difference between matched points: " << (angle_diff_sum / n_matched) << " degrees" << std::endl;
                 // TODO почему SIFT менее точно угадывает средний угол отклонения? изменяется ли ситуация если выкрутить параметр ORIENTATION_VOTES_PEAK_RATIO=0.999? почему?
+                //ДА там вообще в тесте с поворотом на 90 градусов отклонение угла 68 градуосв!!! это вообще никуда не годится.
+                // Если сделать ORIENTATION_VOTES_PEAK_RATIO=0.999, то стало хуже. Видимо так он хоть иногда угол правильно угадвыл, и среднее лучше становилось, а теперь ему вообще плохо.
+                // В общем да, с углом прям действительно какая-та большая беда.
+                // Вероятно действительно проблемы, если в много направлений примерно одинаковые голоса. Тогда от любого маленого сдвига пикселя результаты по голосованию какой угол доминирует может сильно
+                // измениться. Но вообще я действительно скорее что-то более устойчивое ожидала.
             }
             if (desc_dist_sum != 0.0 && desc_rand_dist_sum != 0.0) {
                 std::cout << log_prefix << "average descriptor distance between matched points: " << (desc_dist_sum / n_matched) << " (random distance: " << (desc_rand_dist_sum / n_matched) << ") => differentiability=" << (desc_dist_sum / desc_rand_dist_sum) << std::endl;

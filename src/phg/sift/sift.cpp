@@ -28,7 +28,7 @@
 
 #define ORIENTATION_NHISTS           36   // число корзин при определении ориентации ключевой точки через гистограммы
 #define ORIENTATION_WINDOW_R         3    // минимальный радиус окна в рамках которого будет выбрана ориентиация (в пикселях), R=3 => 5x5 окно
-#define ORIENTATION_VOTES_PEAK_RATIO 0.80 // 0.8 => если гистограмма какого-то направления получила >= 80% от максимального чиссла голосов - она тоже победила
+#define ORIENTATION_VOTES_PEAK_RATIO 0.999//80 // 0.8 => если гистограмма какого-то направления получила >= 80% от максимального чиссла голосов - она тоже победила
 
 #define DESCRIPTOR_SIZE            4 // 4x4 гистограммы декскриптора
 #define DESCRIPTOR_NBINS           8 // 8 корзин-направлений в каждой гистограмме дескриптора (4х4 гистограммы, каждая по 8 корзин, итого 4x4x8=128 значений в дескрипторе)
@@ -179,9 +179,9 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             //DONE
             // спойлер: подуймайте с чем должна визуально совпадать картинка из октавы DoG? может быть с какой-то из картинок с предыдущей октавы? с какой? как их визуально сверить ведь они разного размера?
             // Оля: Ну этот вопрос уже был. У нас две последение картинки из одной октавы совпадают с первыми картинками из следующеей октавы.
-            cv::Mat img;
+            /*cv::Mat img;
             cv::resize(DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer], img, cv::Size( DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer].cols * 0.5 , DoGPyramid[octave * OCTAVE_DOG_IMAGES + layer].rows * 0.5 ), 0.5, 0.5, cv::INTER_NEAREST);
-            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramidDoG/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + "resize05.png", img);
+            if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "pyramidDoG/o" + to_string(octave) + "_l" + to_string(layer) + "_s" + to_string(sigmaCur) + "resize05.png", img);*/
             // Как-то картинка прям совсем другой получается -- это обидно. Здесь это уже очень хорошо заметно.
             // Ну не, и в изначальных сигма всё получилась по разному, значит я ничего не испортила.
             // Ну вот я считаю, что на 2**oct домножать не надо в sigma. Я вообще не понимаю, с чего бы мы на это значение домножаем.
@@ -400,13 +400,20 @@ bool phg::SIFT::buildLocalOrientationHists(const cv::Mat &img, size_t i, size_t 
             size_t bin = orientation / (360 / ORIENTATION_NHISTS);
             rassert(bin < ORIENTATION_NHISTS, 361236315613);
             sum[bin] += sqrt(magnitude);
-            // TODO может быть сгладить получившиеся гистограммы улучшит результат? 
+            // TODO может быть сгладить получившиеся гистограммы улучшит результат?
+            // DONE
         }
     }
 
+    float nsum[ORIENTATION_NHISTS];
+    for (int i = 0; i < ORIENTATION_NHISTS; ++i) {
+        nsum[i] = (sum[i] + sum[(i + 1) % ORIENTATION_NHISTS] * 0.5 +
+                   sum[(i - 1 + ORIENTATION_NHISTS) % ORIENTATION_NHISTS] * 0.5) / 2.;
+    }
+
     for (size_t bin = 0; bin < ORIENTATION_NHISTS; ++bin) {
-        votes[bin] = sum[bin];
-        biggestVote = std::max(biggestVote, sum[bin]);
+        votes[bin] = nsum[bin];
+        biggestVote = std::max(biggestVote, nsum[bin]);
     }
 
     return true;
@@ -463,6 +470,15 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
                     sum[bin] += magnitude;
                     // TODO хорошая идея добавить трилинейную интерполяцию как предложено в статье, или хотя бы сэмулировать ее - сгладить получившиеся гистограммы
                 }
+            }
+
+            float nsum[DESCRIPTOR_NBINS];
+            for (int i = 0; i < DESCRIPTOR_NBINS; ++i) {
+                nsum[i] = (sum[i] + sum[(i + 1) % DESCRIPTOR_NBINS] * 0.5 + sum[(i - 1 + DESCRIPTOR_NBINS) % DESCRIPTOR_NBINS] * 0.5)/2.;
+            }
+
+            for (int i = 0; i < DESCRIPTOR_NBINS; ++i) {
+                sum[i] = nsum[i];
             }
 
             // TODO нормализовать наш вектор дескриптор (подсказка: посчитать его длину и поделить каждую компоненту на эту длину)
