@@ -113,6 +113,9 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             double sigmaPrev = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, prevLayer); // sigma1  - сигма до которой дошла картинка на предыдущем слое
             double sigmaCur  = INITIAL_IMG_SIGMA * pow(2.0, octave) * pow(k, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
             double sigma = sqrt(sigmaCur*sigmaCur - sigmaPrev*sigmaPrev);                // sigma2  - сигма которую надо добавить чтобы довести sigma1 до sigma12
+            // посмотрите внимательно на формулу выше и решите как по мнению этой формулы соотносится сигма у первого А-слоя i-ой октавы
+            // и сигма у одного из последних слоев Б предыдущей (i-1)-ой октавы из которого этот слой А был получен?
+            // а как чисто идейно должны бы соотноситься сигмы размытия у двух картинок если картинка А была получена из картинки Б простым уменьшением в 2 раза?
 
 
             cv::Mat imgLayer = gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + prevLayer].clone();
@@ -462,6 +465,5 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
             }
         }
     }
-
     return true;
 }
