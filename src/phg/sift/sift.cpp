@@ -17,7 +17,7 @@
 
 #define DEBUG_ENABLE     1
 #define DEBUG_PATH       std::string("data/debug/test_sift/debug/")
-//#define INCREMENTAL_SIGMA 1
+#define INCREMENTAL_SIGMA 1
 
 #define NOCTAVES                    3                    // число октав
 #define OCTAVE_NLAYERS              3                    // в [lowe04] это число промежуточных степеней размытия картинки в рамках одной октавы обозначается - s, т.е. s слоев в каждой октаве
@@ -194,7 +194,7 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
     cv::Mat layerBase = imgOrg;
     double step = pow(2.0, 1.0 / OCTAVE_NLAYERS);
 
-    double currentSigma = INPUT_IMG_PRE_BLUR_SIGMA;
+    double currentSigma = INITIAL_IMG_SIGMA;
     if (DEBUG_ENABLE) t.restart();
 
     for (int octave = 0; octave < NOCTAVES; ++octave) {
@@ -212,6 +212,7 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             double sigmaCur  = INITIAL_IMG_SIGMA  * pow(step, layer);     // sigma12 - сигма до которой мы хотим дойти на текущем слое
             currentSigma = sqrt(sigmaCur*sigmaCur - sigmaPrev*sigmaPrev);
             cv::GaussianBlur(gaussianPyramid.back(), blurred, {0, 0}, currentSigma, currentSigma);
+
             if (DEBUG_ENABLE) cv::imwrite(DEBUG_PATH + "03_g_" + to_string(octave) + "_i_" + to_string(layer) + "1.png", blurred);
 #endif
             gaussianPyramid.push_back(blurred);
@@ -231,7 +232,7 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
         cv::resize(gaussianPyramid.back(), nextLayerBase, {}, 0.5, 0.5, cv::INTER_NEAREST);
         layerBase = nextLayerBase;
 #ifdef INCREMENTAL_SIGMA
-        currentSigma = INPUT_IMG_PRE_BLUR_SIGMA;
+        currentSigma = INITIAL_IMG_SIGMA;
 #endif
     }
 
