@@ -22,11 +22,11 @@ namespace phg {
         void findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussianPyramid, const std::vector<cv::Mat> &DoGPyramid,
                                           std::vector<cv::KeyPoint> &keyPoints, cv::Mat &desc) const;
 
-        static void getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const cv::Mat &kernel, const cv::Point2i &pix,
+        static void getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const cv::Point2i &pix,
                                               const cv::Point2f &point, float sigma, float contrast,
                                               std::vector<cv::KeyPoint> &points, std::vector<cv::Mat> &descriptors);
 
-        static void buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint);
+        static cv::Mat buildDescriptor(const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint);
 
         double contrast_threshold;
     };

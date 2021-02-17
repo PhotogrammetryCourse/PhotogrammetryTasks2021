@@ -61,18 +61,17 @@ namespace {
 
     cv::Point2f rotatePoint(const cv::Point2f& inPoint, const cv::Point2f& center, const float& angDeg)
     {
-
         return rotate2d(inPoint - center, angDeg * PI / 180.0) + center;
     }
 
-    cv::Mat createDescriptorKernel(float sigma) {
-        cv::Mat kernel = cv::Mat::zeros(DESCRIPTOR_WINDOW + 1, DESCRIPTOR_WINDOW + 1, CV_32FC1);
+    // https://stackoverflow.com/a/61395220
+    cv::Mat getKernel(int size, float sigma) {
+        cv::Mat kernel = cv::Mat::zeros(size, DESCRIPTOR_WINDOW + 1, CV_32FC1);
         int mid = kernel.rows / 2;
         kernel.at<float>(mid, mid) = 1;
         cv::GaussianBlur(kernel, kernel, {0, 0}, sigma);
         return kernel;
     }
-
 
     float parabolaFitting(float x0, float x1, float x2) {
         rassert((x1 >= x0 && x1 >= x2) || (x1 <= x0 && x1 <= x2), 12541241241241);
@@ -82,15 +81,6 @@ namespace {
         float shift = - b / (2.0f * a) - 1.0f;
         return shift;
     }
-
-    // https://stackoverflow.com/a/61395220
-    void getKernel(cv::Mat &kernel, float sigma) {
-        kernel = cv::Mat::zeros(ORIENTATION_WINDOW + 1, ORIENTATION_WINDOW + 1, CV_32FC1);
-        int mid = kernel.rows / 2;
-        kernel.at<float>(mid, mid) = 1;
-        cv::GaussianBlur(kernel, kernel, {0, 0}, sigma);
-    }
-
 
     void showImg(const std::string &text, cv::Mat &img) {
         cv::Mat normalized;
@@ -240,9 +230,9 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
 }
 
 
-void phg::SIFT::buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint) {
-    cv::Mat descriptorKernel =  createDescriptorKernel(keyPoint.size / 3);
-
+cv::Mat phg::SIFT::buildDescriptor(const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint) {
+    cv::Mat descriptorKernel =  getKernel(DESCRIPTOR_WINDOW + 1, keyPoint.size / 3);
+    cv::Mat descriptor(1, KP_DESCRIPTOR_SIZE, CV_32FC1);
     // пусть x  будет на позиции (8, 8)
     int delta = DESCRIPTOR_WINDOW / 2;
     int shiftX = std::max(pix.x - delta, 0), shiftY = std::max(pix.y - delta, 0);
@@ -265,9 +255,9 @@ void phg::SIFT::buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, co
                     float m = std::sqrt(std::pow(dx, 2.0f) + std::pow(dy, 2.0f));
                     float th = std::atan2(dy, dx)  * 180.0 / PI;
                     if (isnanf(th)) continue;
-                    if (th < 0) th += 359.99;
+                    if (th < 0) th += 360;
                     th -= keyPoint.angle;
-                    if (th < 0) th += 359.99;
+                    if (th < 0) th += 360;
                     if (!(th < 360 && th >= 0)) {
                         continue;
                     }
@@ -278,11 +268,14 @@ void phg::SIFT::buildDescriptor(cv::Mat &descriptor, const cv::Mat &gaussPic, co
     }
 
     cv::normalize(descriptor, descriptor);
+    return descriptor;
 }
 
-void phg::SIFT::getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const cv::Mat &kernel, const cv::Point2i &pix,
+void phg::SIFT::getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const cv::Point2i &pix,
                                                  const cv::Point2f &point, float sigma, float contrast,
                                                  std::vector<cv::KeyPoint> &points, std::vector<cv::Mat> &descriptors) {
+
+    cv::Mat kernel = getKernel(ORIENTATION_WINDOW + 1, SIGMA_SCALE * sigma);
 
     int delta = kernel.rows / 2;
     int shiftX = std::max(pix.x - delta, 0), shiftY = std::max(pix.y - delta, 0);
@@ -304,7 +297,6 @@ void phg::SIFT::getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const 
     }
 
     float max = *std::max_element(bins, bins + ORIENTATION_NHISTS);
-    // TODO перенести в параметр, не боле 3 экстремумов раздваивать
     int counter = 0;
     for (int i = 0; i < ORIENTATION_NHISTS; ++i) {
         // берем только пики
@@ -327,12 +319,11 @@ void phg::SIFT::getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const 
             float angle = shift < 0 ? -shift * deg0 + (1 + shift) * deg1 : (1 - shift) * deg1 + shift * deg2;
             if (angle >= 360) angle -= 360;
             counter ++;
+
             cv::KeyPoint kp{point, 6 * sigma, angle, contrast};
             points.push_back(kp);
 
-            cv::Mat descriptor(1, KP_DESCRIPTOR_SIZE, CV_32FC1);
-            buildDescriptor(descriptor, gaussPic, pix, kp);
-            descriptors.push_back(descriptor);
+            descriptors.push_back(buildDescriptor(gaussPic, pix, kp));
         }
         if (counter >= MAX_POINTS_FROM_ANGLES) break;
     }
@@ -372,10 +363,10 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                         }
                     }
                     if (!good) continue;
-                    cv::Point2i c(x, y);
+                    cv::Point2i pixel(x, y);
                     cv::Point3f delta{};
                     float contrast;
-                    approximate(delta, contrast, c, below, current, above);
+                    approximate(delta, contrast, pixel, below, current, above);
                     // просто отбросим нестабильную точку
                     if (std::fabs(delta.x) > 0.5f || std::fabs(delta.y) > 0.5f || std::fabs(delta.z) > 0.5f) continue;
 
@@ -384,25 +375,19 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                     if (abs(contrast) < contrast_threshold / OCTAVE_NLAYERS) continue;
 
                     // TODO добавить проверку с изгибом, что рассматриваем не линию
-                    // теперь считаем для точки ориентацию. она может раздвоиться после этого
+
                     double step = pow(2.0, 1.0 / OCTAVE_NLAYERS);
-                    // SIGMA_SCALE -- 1,5, как в статье,
-                    // TODO переделать сигму с аппроксимацией
                     float prevSigma = INITIAL_IMG_SIGMA * pow(step, layer);
                     float currentSigma = INITIAL_IMG_SIGMA * pow(step, layer + 1);
                     float nextSigma = INITIAL_IMG_SIGMA * pow(step, layer + 2);
-                    currentSigma = delta.z < 0 ?  currentSigma = -delta.z * prevSigma + (1 + delta.z) * currentSigma :
+                    currentSigma = delta.z < 0 ?  -delta.z * prevSigma + (1 + delta.z) * currentSigma :
                                    (1 - delta.z) * currentSigma + delta.z * nextSigma;
 
-                    float windowSigma = SIGMA_SCALE * currentSigma;
-                    cv::Mat gaussianKernel;
-                    getKernel(gaussianKernel, windowSigma);
 
-                    // TODO переделать выбор пирамиды с аппроксимацией
                     cv::Mat gP = gaussianPyramid[OCTAVE_GAUSSIAN_IMAGES * octave + layer + 1];
-                    cv::Point2f point{(0.5f + c.y + delta.y) * octaveScale, (0.5f + c.x + delta.x) * octaveScale};
+                    cv::Point2f point{(0.5f + pixel.y + delta.y) * octaveScale, (0.5f + pixel.x + delta.x) * octaveScale};
 
-                    getPointOrientationAndDescriptor(gP, gaussianKernel, c, point, currentSigma, abs(contrast), keyPoints,
+                    getPointOrientationAndDescriptor(gP, pixel, point, currentSigma, abs(contrast), keyPoints,
                                                      descriptors);
                 }
             }
