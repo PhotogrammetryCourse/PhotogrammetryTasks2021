@@ -232,7 +232,7 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
 
 cv::Mat phg::SIFT::buildDescriptor(const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint) {
     cv::Mat descriptorKernel =  getKernel(DESCRIPTOR_WINDOW + 1, keyPoint.size / 3);
-    cv::Mat descriptor(1, KP_DESCRIPTOR_SIZE, CV_32FC1);
+    cv::Mat descriptor = cv::Mat::zeros(1, KP_DESCRIPTOR_SIZE, CV_32FC1);
     // пусть x  будет на позиции (8, 8)
     int delta = DESCRIPTOR_WINDOW / 2;
     int shiftX = std::max(pix.x - delta, 0), shiftY = std::max(pix.y - delta, 0);
