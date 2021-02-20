@@ -8,6 +8,7 @@
 #include <libutils/timer.h>
 #include <libutils/rasserts.h>
 
+
 #include <phg/sift/sift.h>
 
 #include "utils/test_utils.h"
@@ -50,7 +51,7 @@ double diffAngles(double angle0, double angle1) {
     if (angle0 != -1.0 && angle1 != -1.0) {
         rassert(angle0 >= 0.0 && angle0 < 360.0, 1235612352151);
         rassert(angle1 >= 0.0 && angle1 < 360.0, 4645315415);
-        float diff;
+        double diff;
         if ((angle1 <= angle0 + 180 && angle0 + 180 <= 360) || (angle1 >= angle0 - 180 && angle0 - 180 >= 0)) {
             diff = angle1 - angle0;
         } else if (angle1 > angle0 + 180 && angle0 + 180 <= 360) {
@@ -119,18 +120,20 @@ void evaluateDetection(const cv::Mat &M, double minRecall, cv::Mat img0=cv::Mat(
                 detector->compute(img1, kps1, desc1);
             } else if (method == 2) {
                 // TODO remove 'return' and uncomment
-                return;
-//                method_name = "SIFT_MY";
-//                log_prefix = "[SIFT_MY] ";
-//                phg::SIFT mySIFT;
-//                mySIFT.detectAndCompute(img0, kps0, desc0);
-//                mySIFT.detectAndCompute(img1, kps1, desc1);
+//                return;
+                method_name = "SIFT_MY";
+                log_prefix = "[SIFT_MY] ";
+                phg::SIFT mySIFT;
+                mySIFT.detectAndCompute(img0, kps0, desc0);
+                mySIFT.detectAndCompute(img1, kps1, desc1);
             } else {
-                rassert(false, 13532513412); // это не проверка как часть тестирования, это проверка что число итераций в цикле и if-else ветки все еще согласованы и не разошлись
+                rassert(false,
+                        13532513412); // это не проверка как часть тестирования, это проверка что число итераций в цикле и if-else ветки все еще согласованы и не разошлись
             }
 
+
             std::cout << log_prefix << "Points detected: " << kps0.size() << " -> " << kps1.size() << " (in " << t.elapsed() << " sec)" << std::endl;
-    
+
             std::vector<cv::Point2f> ps01(kps0.size()); // давайте построим эталон - найдем куда бы должны были сместиться ключевые точки с исходного изображения с учетом нашей матрицы трансформации M
             {
                 std::vector<cv::Point2f> ps0(kps0.size()); // здесь мы сейчас расположим детектированные ключевые точки (каждую нужно преобразовать из типа КлючеваяТочка в Точка2Дэ)
@@ -162,7 +165,7 @@ void evaluateDetection(const cv::Mat &M, double minRecall, cv::Mat img0=cv::Mat(
                     continue;
                 }
 
-                ptrdiff_t closest_j = -1; // будем искать ближайшую точку детектированную на искаженном изображении 
+                ptrdiff_t closest_j = -1; // будем искать ближайшую точку детектированную на искаженном изображении
                 double min_error = std::numeric_limits<float>::max();
                 for (ptrdiff_t j = 0; j < kps1.size(); ++j) {
                     double error = cv::norm(kps1[j].pt - p01);
@@ -194,7 +197,7 @@ void evaluateDetection(const cv::Mat &M, double minRecall, cv::Mat img0=cv::Mat(
                         desc_rand_dist_sum += cv::norm(d0, random_d1, cv::NORM_L2);
 
                         desc_dist_sum += cv::norm(d0, d1, cv::NORM_L2);
-                        
+
                         // Это способ заглянуть в черную коробку, так вы можете визуально посмотреть на то
                         // что за числа в дескрипторах двух сопоставленных точек, насколько они похожи,
                         // и сверить что расстояние между дескрипторами - это действительно расстояние
@@ -244,7 +247,7 @@ void evaluateDetection(const cv::Mat &M, double minRecall, cv::Mat img0=cv::Mat(
             // где проблемы, или где можно что-то улучшить
             drawKeyPoints(result0, kps0, is_not_matched0);
             drawKeyPoints(result1, kps1, is_not_matched1);
-    
+
             cv::Mat result = concatenateImagesLeftRight(result0, result1);
             cv::putText(result, log_prefix + " recall=" + to_string(recall), cv::Point(10, 30), cv::FONT_HERSHEY_DUPLEX, 0.75, CV_RGB(255, 255, 0));
             cv::putText(result, "avgPixelsError=" + to_string(avg_error), cv::Point(10, 60), cv::FONT_HERSHEY_DUPLEX, 0.75, CV_RGB(255, 255, 0));
@@ -261,6 +264,7 @@ void evaluateDetection(const cv::Mat &M, double minRecall, cv::Mat img0=cv::Mat(
             }
         }
     }
+//    return;
 }
 
 // создаем матрицу описывающую преобразование пространства "сдвиг на вектор"
@@ -280,6 +284,8 @@ TEST (SIFT, MovedTheSameImage) {
     double minRecall = 0.75;
     evaluateDetection(createTranslationMatrix(0.0, 0.0), minRecall);
 }
+
+
 
 TEST (SIFT, MovedImageRight) {
     double minRecall = 0.75;
