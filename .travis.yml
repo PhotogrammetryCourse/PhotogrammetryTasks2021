@@ -20,3 +20,4 @@ script:
   - make -j12
   - cd ..
   - ./build/test_sift
+  - ./build/test_matching

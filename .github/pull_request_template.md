@@ -33,6 +33,7 @@
 
 <pre>
 $ ./build/test_sift
+$ ./build/test_matching
 Running main() from /home/travis/build/PhotogrammetryCourse/PhotogrammetryTasks2021/libs/3rdparty/libgtest/googletest/src/gtest_main.cc
 [==========] Running 22 tests from 1 test suite.
 [----------] Global test environment set-up.
