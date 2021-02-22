@@ -94,20 +94,20 @@ namespace {
         }
         else
         if (res == 1) {
-            std::cout << "gauss: unique solution found" << std::endl;
+//            std::cout << "gauss: unique solution found" << std::endl;
         }
         else
         if (res == std::numeric_limits<int>::max()) {
-            std::cerr << "gauss: infinitely many solutions found" << std::endl;
-            std::cerr << "gauss: xs0: ";
-            for (int i = 0; i < 4; ++i) {
-                std::cerr << xs0[i] << ", ";
-            }
-            std::cerr << "\ngauss: ys0: ";
-            for (int i = 0; i < 4; ++i) {
-                std::cerr << ys0[i] << ", ";
-            }
-            std::cerr << std::endl;
+//            std::cerr << "gauss: infinitely many solutions found" << std::endl;
+//            std::cerr << "gauss: xs0: ";
+//            for (int i = 0; i < 4; ++i) {
+//                std::cerr << xs0[i] << ", ";
+//            }
+//            std::cerr << "\ngauss: ys0: ";
+//            for (int i = 0; i < 4; ++i) {
+//                std::cerr << ys0[i] << ", ";
+//            }
+//            std::cerr << std::endl;
         }
         else
         {
@@ -171,7 +171,8 @@ namespace {
         const int n_matches = points_lhs.size();
 //
 //        // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
-        const int n_trials = 20;
+        const int n_trials = (int) (log2(1 - 0.96) / log2(1 - pow(0.4, 4)));
+        std::cout << "n_trials: " << n_trials << std::endl;
 //
         const int n_samples = 4;
         uint64_t seed = 1;

@@ -7,7 +7,7 @@
 void phg::DescriptorMatcher::filterMatchesRatioTest(const std::vector<std::vector<cv::DMatch>> &matches,
                                                     std::vector<cv::DMatch> &filtered_matches)
 {
-    static float ratio = 0.7;
+    static float ratio = 0.6;
 
     filtered_matches.clear();
     for (const std::vector<cv::DMatch> &match: matches) {
