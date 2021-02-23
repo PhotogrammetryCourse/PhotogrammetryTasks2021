@@ -485,7 +485,7 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
                             }; // делить на dx, dy не нужно, так как atan2 пофиг на домножение на одинаковую константу
 
                             const double magnitude = gradient.dot(gradient);
-                            const double orientation = atan2deg(gradient[1], gradient[0]); // уже повернули всю область -> ничего делать не надо
+                            const double orientation = fix_angle(atan2deg(gradient[1], gradient[0]) - angle);
                             rassert(0.0 <= orientation && orientation < 360.0, 3515215125412);
 
                             static_assert(360 % DESCRIPTOR_NBINS == 0, "Inappropriate bins number!");
