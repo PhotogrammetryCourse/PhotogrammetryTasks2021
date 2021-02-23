@@ -29,6 +29,8 @@ namespace phg {
                              std::vector<float> &descriptor);
 
         double contrast_threshold;
+
+        float * getSmoothArray(const float *sum) const;
     };
 
 }
