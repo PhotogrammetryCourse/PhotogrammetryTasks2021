@@ -1,7 +1,7 @@
 #ifndef clion_defines_cl // pragma once
 #define clion_defines_cl
 
-#ifdef __CLION_IDE__
+//#ifdef __CLION_IDE__
 
 #ifndef STATIC_KEYWORD
 #define STATIC_KEYWORD static
@@ -14,6 +14,10 @@
 #define __private
 
 #define half float
+#define uint int
+#define FLT_MAX 0
+#define pow(a, b) (a + b)
+#define sqrt(a) (a)
 
 struct float2 { float x;          };
 struct float3 { float x, y, z;    };
@@ -69,6 +73,6 @@ uint	get_work_dim		();
 // 64 for AMD, 32 for NVidia, 8 for intel GPUs, 1 for CPU
 #define WARP_SIZE 64
 
-#endif
+//#endif
 
 #endif // pragma once

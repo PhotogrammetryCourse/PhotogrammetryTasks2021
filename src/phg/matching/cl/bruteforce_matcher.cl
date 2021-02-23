@@ -1,7 +1,9 @@
-#ifdef __CLION_IDE__
-// Этот include виден только для CLion парсера, это позволяет IDE "знать" ключевые слова вроде __kernel, __global
-// а также уметь подсказывать OpenCL методы, описанные в данном инклюде (такие как get_global_id(...) и get_local_id(...))
+#ifndef RUN
+
 #include <libgpu/opencl/cl/clion_defines.cl>
+#define KEYPOINTS_PER_WG  4
+#define __attribute__(args)
+
 #endif
 
 #define NDIM 128 // размерность дескриптора, мы полагаемся на то что она совпадает с размером нашей рабочей группы
@@ -12,13 +14,13 @@ __kernel void bruteforce_matcher(__global const float* train,
                                  __global        uint* res_train_idx,
                                  __global        uint* res_query_idx,
                                  __global       float* res_distance,
-                                 unsigned int n_train_desc,
-                                 unsigned int n_query_desc)
+                                 uint n_train_desc,
+                                 uint n_query_desc)
 {
     // каждая рабочая группа обрабатывает KEYPOINTS_PER_WG=4 дескриптора из query (сопоставляет их со всеми train)
 
-    const unsigned int dim_id = get_global_id(0); // от 0 до 127, номер размерности за которую ответственен поток
-    const unsigned int query_id0 = KEYPOINTS_PER_WG * get_global_id(1); // номер первого дескриптора из четверки запросов query, которые наша рабочая группа должна сопоставлять
+    const uint dim_id = get_global_id(0); // от 0 до 127, номер размерности за которую ответственен поток
+    const uint query_id0 = KEYPOINTS_PER_WG * get_global_id(1); // номер первого дескриптора из четверки запросов query, которые наша рабочая группа должна сопоставлять
 
     // храним KEYPOINTS_PER_WG=4 дескриптора-query:
     __local float query_local[KEYPOINTS_PER_WG * NDIM];
@@ -31,25 +33,29 @@ __kernel void bruteforce_matcher(__global const float* train,
     }
 
     // грузим 4 дескриптора-query (для каждого из четырех дескрипторов каждый поток грузит значение своей размерности dim_id)
-    // TODO: т.е. надо прогрузить в query_local все KEYPOINTS_PER_WG=4 дескриптора из query (начиная с индекса query_id0) (а если часть из них выходит за пределы n_query_desc - грузить нули)
+    for (int desc = 0; desc < KEYPOINTS_PER_WG; ++desc) {
+        query_local[desc * NDIM + dim_id] = query_id0 + desc < n_query_desc ? query[(query_id0 + desc) * NDIM + dim_id] : 0;
+    }
 
     barrier(CLK_LOCAL_MEM_FENCE); // дожидаемся прогрузки наших дескрипторов-запросов
 
+
+    __local float dist2_for_reduction[NDIM];
     for (int train_idx = 0; train_idx < n_train_desc; ++train_idx) {
         float train_value_dim = train[train_idx * NDIM + dim_id];
         for (int query_local_i = 0; query_local_i < KEYPOINTS_PER_WG; ++query_local_i) {
-            // хотим посчитать расстояние:
-            // от дескриптора-query в локальной памяти  (#query_local_i)
-            // до дескриптора-train в глобальной памяти (#train_idx)
-
-            // TODO посчитать квадрат расстояния по нашей размерности (dim_id) и сохранить его в нашу ячейку в dist2_for_reduction
+            float query_value_dim = query_local[query_local_i * NDIM + dim_id];
+            dist2_for_reduction[dim_id] = pow(query_value_dim - train_value_dim, 2);
+            // посчитать квадрат расстояния по нашей размерности (dim_id) и сохранить его в нашу ячейку в dist2_for_reduction
 
             barrier(CLK_LOCAL_MEM_FENCE);
-            // TODO суммируем редукцией все что есть в dist2_for_reduction
+            // суммируем редукцией все что есть в dist2_for_reduction
             int step = NDIM / 2;
             while (step > 0) {
                 if (dim_id < step) {
-                    // TODO
+                    float a = dist2_for_reduction[dim_id];
+                    float b = dist2_for_reduction[dim_id + step];
+                    dist2_for_reduction[dim_id] = a + b;
                 }
                 barrier(CLK_LOCAL_MEM_FENCE);
                 step /= 2;
@@ -67,9 +73,14 @@ __kernel void bruteforce_matcher(__global const float* train,
                     // не забываем что прошлое лучшее сопоставление теперь стало вторым по лучшевизне (на данный момент)
                     res_distance2_local[query_local_i * 2 + SECOND_BEST_INDEX] = res_distance2_local[query_local_i * 2 + BEST_INDEX];
                     res_train_idx_local[query_local_i * 2 + SECOND_BEST_INDEX] = res_train_idx_local[query_local_i * 2 + BEST_INDEX];
-                    // TODO заменяем нашим (dist2, train_idx) самое лучшее сопоставление для локального дескриптора
+                    // заменяем нашим (dist2, train_idx) самое лучшее сопоставление для локального дескриптора
+                    res_distance2_local[query_local_i * 2 + BEST_INDEX] = dist2;
+                    res_train_idx_local[query_local_i * 2 + BEST_INDEX] = train_idx;
+
                 } else if (dist2 <= res_distance2_local[query_local_i * 2 + SECOND_BEST_INDEX]) { // может мы улучшили хотя бы второе по лучшевизне сопоставление?
-                    // TODO заменяем второе по лучшевизне сопоставление для локального дескриптора
+                    // заменяем второе по лучшевизне сопоставление для локального дескриптора
+                    res_distance2_local[query_local_i * 2 + SECOND_BEST_INDEX] = dist2;
+                    res_train_idx_local[query_local_i * 2 + SECOND_BEST_INDEX] = train_idx;
                 }
             }
         }
@@ -82,9 +93,8 @@ __kernel void bruteforce_matcher(__global const float* train,
 
         int query_id = query_id0 + query_local_i;
         if (query_id < n_query_desc) {
-            res_train_idx[query_id * 2 + k] = // TODO
-            res_query_idx[query_id * 2 + k] = // TODO хм, не масло масленное ли?
-            res_distance [query_id * 2 + k] = // TODO не забудьте извлечь корень
-        }
+            res_train_idx[query_id * 2 + k] = res_train_idx_local[query_local_i * 2 + k];
+            res_query_idx[query_id * 2 + k] = query_id;// TODO хм, не масло масленное ли? :))))
+            res_distance [query_id * 2 + k] = sqrt(res_distance2_local[query_local_i * 2 + k]);// TODO не забудьте извлечь корень
     }
 }

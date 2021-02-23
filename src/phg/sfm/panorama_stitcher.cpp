@@ -26,7 +26,7 @@ cv::Mat phg::stitchPanorama(const std::vector<cv::Mat> &imgs,
         for (int i = 0 ; i < n_images; ++i) {
             if (init[i] == 1) continue;
             if (parent[i] == -1) {
-                Hs[i] = cv::Mat::eye(3, 3, 6);
+                Hs[i] = cv::Mat::eye(3, 3, CV_64F);
                 init[i] = 1;
                 continue;
             }

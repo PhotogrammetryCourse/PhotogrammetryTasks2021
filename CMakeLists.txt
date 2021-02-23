@@ -53,6 +53,8 @@ set(SOURCES
         src/phg/sfm/homography.h
         src/phg/sfm/panorama_stitcher.h
         src/phg/sfm/panorama_stitcher.cpp
+
+        src/phg/matching/cl/bruteforce_matcher.cl
         )
 
 # convertIntoHeader CMake-функция объявлена в libs/gpu/CMakeLists.txt:71
