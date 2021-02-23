@@ -20,7 +20,7 @@
 
 // TODO enable both toggles for testing custom detector & matcher
 #define ENABLE_MY_DESCRIPTOR 0
-#define ENABLE_MY_MATCHING 0
+#define ENABLE_MY_MATCHING 1
 #define ENABLE_GPU_BRUTEFORCE_MATCHER 0
 
 #if ENABLE_MY_MATCHING
@@ -236,7 +236,7 @@ namespace {
             cv::Mat descriptors1, descriptors2;
             phg::SIFT mySIFT;
             mySIFT.detectAndCompute(img1, keypoints1, descriptors1);
-            mySIFT.detectAndCompute(img1, keypoints2, descriptors2);
+            mySIFT.detectAndCompute(img2, keypoints2, descriptors2);
 
             testStitching(img1, img2, keypoints1, keypoints2, descriptors1, descriptors2);
         }
@@ -518,7 +518,7 @@ namespace {
             cv::Mat descriptors1, descriptors2;
             phg::SIFT mySIFT;
             mySIFT.detectAndCompute(img1, keypoints1, descriptors1);
-            mySIFT.detectAndCompute(img1, keypoints2, descriptors2);
+            mySIFT.detectAndCompute(img2, keypoints2, descriptors2);
 
             testMatching(img1, img2, keypoints1, keypoints2, descriptors1, descriptors2,
                          nn_score, nn2_score, nn_score_cv, nn2_score_cv,

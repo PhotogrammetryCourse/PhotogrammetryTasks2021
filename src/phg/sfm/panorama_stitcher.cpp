@@ -3,6 +3,7 @@
 
 #include <libutils/bbox2.h>
 #include <iostream>
+#include <map>
 
 /*
  * imgs - список картинок
@@ -10,6 +11,30 @@
  *          этот список образует дерево, корень дерева (картинка, которая ни к кому не приклеивается, приклеиваются только к ней), в данном массиве имеет значение -1
  * homography_builder - функтор, возвращающий гомографию по паре картинок
  * */
+
+namespace {
+    void calcHomography(const std::vector<cv::Mat> &imgs,
+                        const std::vector<int> &parent,
+                        int i, std::vector<cv::Mat> &Hs,
+                        std::function<cv::Mat(const cv::Mat &, const cv::Mat &)> &homography_builder,
+                        std::vector<bool> &is_visited)
+    {
+        if (is_visited[i]) return;
+        is_visited[i] = true;
+
+        if (parent[i] == -1) {
+            Hs[i] = cv::Mat::eye(3, 3, CV_64FC1);
+            return;
+        }
+
+        if (!is_visited[parent[i]]) {
+            calcHomography(imgs, parent, parent[i], Hs, homography_builder, is_visited);
+        }
+
+        Hs[i] = Hs[parent[i]] * homography_builder(imgs[i], imgs[parent[i]]);
+    }
+}
+
 cv::Mat phg::stitchPanorama(const std::vector<cv::Mat> &imgs,
                             const std::vector<int> &parent,
                             std::function<cv::Mat(const cv::Mat &, const cv::Mat &)> &homography_builder)
@@ -20,10 +45,14 @@ cv::Mat phg::stitchPanorama(const std::vector<cv::Mat> &imgs,
 
     // вектор гомографий, для каждой картинки описывает преобразование до корня
     std::vector<cv::Mat> Hs(n_images);
+    std::vector<bool> is_visited(n_images, false);
+
     {
         // здесь надо посчитать вектор Hs
         // при этом можно обойтись n_images - 1 вызовами функтора homography_builder
-        throw std::runtime_error("not implemented yet");
+        for (int i = 0; i < n_images; ++i) {
+            calcHomography(imgs, parent, i, Hs, homography_builder, is_visited);
+        }
     }
 
     bbox2<double, cv::Point2d> bbox;
