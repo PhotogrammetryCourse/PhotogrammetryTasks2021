@@ -84,8 +84,7 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
             cv::resize(img, img, cv::Size(0 , 0), 0.5, 0.5, cv::INTER_NEAREST);
             gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES + layer] = img;
         }
-
-        #pragma omp parallel for // TODO: если выполните TODO про "размытие из изначального слоя октавы" ниже - раскоментируйте это распараллеливание, ведь теперь слои считаются независимо (из самого первого), проверьте что результат на картинках не изменился
+    //    #pragma omp parallel for // TODO: если выполните TODO про "размытие из изначального слоя октавы" ниже - раскоментируйте это распараллеливание, ведь теперь слои считаются независимо (из самого первого), проверьте что результат на картинках не изменился
         for (ptrdiff_t layer = 1; layer < OCTAVE_GAUSSIAN_IMAGES; ++layer) {
             size_t prevLayer = layer - 1;
 
@@ -238,6 +237,8 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                         {
                             // TODO
 
+                            //dx  = parabolaFitting(DoGs[1].at<float>(j, i - 1),center, DoGs[1].at<float>(j, i + 1) );
+                            //dy  = parabolaFitting(DoGs[1].at<float>(j - 1,i ),center, DoGs[1].at<float>(j + 1, i ));
 
 
                         }
@@ -247,7 +248,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                         if (contrast < contrast_threshold / OCTAVE_NLAYERS) // TODO почему порог контрастности должен уменьшаться при увеличении числа слоев в октаве?
                             continue;
 
-                        kp.pt = cv::Point2f((i + 0.5 + dx) * octave_downscale, (j + 0.5 + dy) * octave_downscale);
+                        kp.pt = cv::Point2f((i + 0.5f + dx) * octave_downscale, (j + 0.5 + dy) * octave_downscale);
 
                         kp.response = fabs(contrast);
 
@@ -393,7 +394,7 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
 
                             rassert(orientation >= 0.0 && orientation < 360.0, 3515215125412);
                             static_assert(360 % DESCRIPTOR_NBINS == 0, "Inappropriate bins number!");
-                            size_t bin = orientation * ORIENTATION_NHISTS / 360;
+                            size_t bin = (orientation * DESCRIPTOR_NBINS) / 360;
                             
                             
                             rassert(bin < DESCRIPTOR_NBINS, 361236315613);
@@ -407,8 +408,8 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
             // TODO нормализовать наш вектор дескриптор (подсказка: посчитать его длину и поделить каждую компоненту на эту длину)
 
             double normSum = 0;
-            for(auto x: sum){
-                normSum = normSum + x * x;
+            for(size_t i = 0;i < DESCRIPTOR_NBINS;++i){
+                normSum = normSum + sum[i] * sum[i];
             }
             
 
