@@ -94,7 +94,8 @@ __kernel void bruteforce_matcher(__global const float* train,
         int query_id = query_id0 + query_local_i;
         if (query_id < n_query_desc) {
             res_train_idx[query_id * 2 + k] = res_train_idx_local[query_local_i * 2 + k];
-            res_query_idx[query_id * 2 + k] = query_id;// TODO хм, не масло масленное ли? :))))
-            res_distance [query_id * 2 + k] = sqrt(res_distance2_local[query_local_i * 2 + k]);// TODO не забудьте извлечь корень
+            res_query_idx[query_id * 2 + k] = query_id;//  хм, не масло масленное ли? :))))
+            res_distance[query_id * 2 + k] = sqrt(res_distance2_local[query_local_i * 2 + k]);// TODO не забудьте извлечь корень
+        }
     }
 }
