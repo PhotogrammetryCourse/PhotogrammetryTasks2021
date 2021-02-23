@@ -98,11 +98,10 @@ namespace {
         }
 
 #if ENABLE_MY_MATCHING
-        cv::Mat H = phg::findHomography(points1, points2);
+        cv::Mat H = phg::findHomography(points1, points2, &(img2.size));
 #else
         cv::Mat H = phg::findHomographyCV(points1, points2);
 #endif
-
         return H;
     }
 
@@ -149,7 +148,7 @@ namespace {
             points2.push_back(keypoints2[match.trainIdx].pt);
         }
 #if ENABLE_MY_MATCHING
-        cv::Mat H = phg::findHomography(points1, points2);
+        cv::Mat H = phg::findHomography(points1, points2, &(img2.size));
 #else
         cv::Mat H = phg::findHomographyCV(points1, points2);
 #endif
@@ -405,7 +404,7 @@ namespace {
             }
 
 #if ENABLE_MY_MATCHING
-            H = phg::findHomography(points1, points2);
+            H = phg::findHomography(points1, points2,  &(img2.size));
 #else
             H = phg::findHomographyCV(points1, points2);
 #endif

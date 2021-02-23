@@ -3,7 +3,15 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <iostream>
 
+
+#define ORSA 1
+
 namespace {
+
+    // https://math.stackexchange.com/a/64735
+    double log2_binomial_approx(int n, int m) {
+        return (n + 0.5) * std::log2(n) - (m + 0.5) * log2(m) - (n - m + 0.5) * log2(n - m) - 0.5 * log2(M_PI);
+    }
 
     // источник: https://e-maxx.ru/algo/linear_systems_gauss
     // очень важно при выполнении метода гаусса использовать выбор опорного элемента: об этом можно почитать в источнике кода
@@ -156,13 +164,14 @@ namespace {
         }
     }
 
-    cv::Mat estimateHomographyRANSAC(const std::vector<cv::Point2f> &points_lhs, const std::vector<cv::Point2f> &points_rhs)
+    cv::Mat estimateHomographyRANSAC(const std::vector<cv::Point2f> &points_lhs, const std::vector<cv::Point2f> &points_rhs,
+                                     const cv::MatSize *mSize)
     {
         if (points_lhs.size() != points_rhs.size()) {
             throw std::runtime_error("findHomography: points_lhs.size() != points_rhs.size()");
         }
 
-        // TODO Дополнительный балл, если вместо обычной версии будет использована модификация a-contrario RANSAC
+        //  Дополнительный балл, если вместо обычной версии будет использована модификация a-contrario RANSAC
         // * [1] Automatic Homographic Registration of a Pair of Images, with A Contrario Elimination of Outliers. (Lionel Moisan, Pierre Moulon, Pascal Monasse)
         // * [2] Adaptive Structure from Motion with a contrario model estimation. (Pierre Moulon, Pascal Monasse, Renaud Marlet)
         // * (простое описание для понимания)
@@ -171,17 +180,58 @@ namespace {
         const int n_matches = points_lhs.size();
 //
 //        // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
-        const int n_trials = (int) (log2(1 - 0.96) / log2(1 - pow(0.4, 4)));
+        const int n_trials = (int) (log2(1 - 0.96) / log2(1 - pow(0.6, 4)));
         std::cout << "n_trials: " << n_trials << std::endl;
 //
         const int n_samples = 4;
         uint64_t seed = 1;
         const double reprojection_error_threshold_px = 2;
 
-        int best_support = 0;
         cv::Mat best_H;
-
         std::vector<int> sample;
+
+#if ORSA
+        if (mSize == nullptr) throw std::runtime_error("Second picture size is not provided");
+
+        //http://www.ipol.im/pub/art/2012/mmm-oh/
+        double alpha = M_PI / ((*mSize[0]) * (*mSize[1]));
+        double smallest_log2_NFA = std::numeric_limits<double>::max();
+        std::vector<double> errors(n_matches);
+        std::vector<double> precalcs(n_matches, 0);
+
+        //  log2(NFA(k)) = log2((n_matches - n_samples) * bi(n_matches, k) * bi(k, n_samples) * ((err^2 * alpha)^(k-4))) =
+        //  log2(n_matches - n_samples) + log2(bi(n_matches, k)) +
+        // + log2(bi(k, n_samples)) + (k-n_samples)*log2(alpha) +  потом ещё 2*(k-n_samples)*log(err)
+        for (int k = n_samples; k < n_matches; ++k) {
+            precalcs[k] = log2(n_matches-n_samples) + log2_binomial_approx(n_matches, k) +
+                    + log2_binomial_approx(k, n_samples) + (k-n_samples) * log2(alpha);
+        }
+
+        for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
+            randomSample(sample, n_matches, n_samples, &seed);
+
+            cv::Mat H = estimateHomography4Points(points_lhs[sample[0]], points_lhs[sample[1]], points_lhs[sample[2]], points_lhs[sample[3]],
+                                                  points_rhs[sample[0]], points_rhs[sample[1]], points_rhs[sample[2]], points_rhs[sample[3]]);
+
+            for (int i_point = 0; i_point < n_matches; ++i_point) {
+                cv::Point2d proj = phg::transformPoint(points_lhs[i_point], H);
+                errors[i_point] = cv::norm(proj - cv::Point2d(points_rhs[i_point]));
+            }
+
+            std::sort(errors.begin(), errors.end());
+
+            for (int k = n_samples + 1; k <= n_matches; ++k) {
+                double est_log2_NFA = precalcs[k-1] + 2 * (k - n_samples) * log2(errors[k-1]);
+                if (est_log2_NFA < smallest_log2_NFA) {
+                    smallest_log2_NFA = est_log2_NFA;
+                    best_H = H;
+                }
+            }
+        }
+
+#else
+        // sourse
+        int best_support = 0;
         for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
             randomSample(sample, n_matches, n_samples, &seed);
 
@@ -217,15 +267,16 @@ namespace {
         if (best_support == 0) {
             throw std::runtime_error("estimateHomographyRANSAC : failed to estimate homography");
         }
-
+#endif
         return best_H;
     }
 
 }
 
-cv::Mat phg::findHomography(const std::vector<cv::Point2f> &points_lhs, const std::vector<cv::Point2f> &points_rhs)
+cv::Mat phg::findHomography(const std::vector<cv::Point2f> &points_lhs, const std::vector<cv::Point2f> &points_rhs,
+                            const cv::MatSize *mSize)
 {
-    return estimateHomographyRANSAC(points_lhs, points_rhs);
+    return estimateHomographyRANSAC(points_lhs, points_rhs, mSize);
 }
 
 // чтобы заработало, нужно пересобрать библиотеку с дополнительным модулем calib3d (см. инструкцию в корневом CMakeLists.txt)

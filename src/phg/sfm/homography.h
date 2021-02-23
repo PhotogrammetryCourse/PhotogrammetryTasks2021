@@ -5,7 +5,7 @@
 namespace phg {
 
     cv::Mat findHomography(const std::vector<cv::Point2f> &points_lhs,
-                               const std::vector<cv::Point2f> &points_rhs);
+                               const std::vector<cv::Point2f> &points_rhs, const cv::MatSize *mSize = nullptr);
 
     cv::Mat findHomographyCV(const std::vector<cv::Point2f> &points_lhs,
                            const std::vector<cv::Point2f> &points_rhs);
