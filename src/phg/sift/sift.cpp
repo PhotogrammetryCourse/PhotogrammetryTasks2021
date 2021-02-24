@@ -98,8 +98,8 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
 
             // TODO: переделайте это добавочное размытие с варианта "размываем предыдущий слой" на вариант "размываем самый первый слой октавы до степени размытия сигмы нашего текущего слоя"
             // проверьте - картинки отладочного вывода выглядят один-в-один до/после? (посмотрите на них туда-сюда быстро мигая)
-            double sigma_init = INITIAL_IMG_SIGMA;
-            double sigmaCurLayer  = INITIAL_IMG_SIGMA * pow(k, layer);
+            double sigma_init = INITIAL_IMG_SIGMA* pow(2.0, octave);
+            double sigmaCurLayer  = INITIAL_IMG_SIGMA * pow(k, layer) * pow(2.0, octave);
             double simga_delta = sqrt(sigmaCurLayer*sigmaCurLayer - sigma_init*sigma_init);
 
             cv::Mat imgLayerTemp = gaussianPyramid[octave * OCTAVE_GAUSSIAN_IMAGES].clone();
@@ -210,7 +210,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
     std::vector<std::vector<float>> pointsDesc;
 
     // 3.1 Local extrema detection
- #pragma omp parallel // запустили каждый вычислительный поток процессора
+#pragma omp parallel // запустили каждый вычислительный поток процессора
     {
         // каждый поток будет складировать свои точки в свой личный вектор (чтобы не было гонок и не были нужны точки синхронизации)
         std::vector<cv::KeyPoint> thread_points;
@@ -239,10 +239,10 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                                     if(!dz && !dy && !dx)
                                         continue;
 
-                                    if(center < DoGs[1+dz].at<float>(j+dy, i+dx))
+                                    if(center <= DoGs[1+dz].at<float>(j+dy, i+dx))
                                         is_max = false;
 
-                                    if(center > DoGs[1+dz].at<float>(j+dy, i+dx))
+                                    if(center >= DoGs[1+dz].at<float>(j+dy, i+dx))
                                         is_min = false;
 
                                 }
@@ -264,9 +264,8 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                             // TODO
                         }
 #endif
-
                         dx = parabolaFitting(DoGs[1].at<float>(j, i-1),DoGs[1].at<float>(j, i),DoGs[1].at<float>(j, i+1));
-                        dx = parabolaFitting(DoGs[1].at<float>(j-1, i),DoGs[1].at<float>(j, i),DoGs[1].at<float>(j + 1, i));
+                        dy = parabolaFitting(DoGs[1].at<float>(j-1, i),DoGs[1].at<float>(j, i),DoGs[1].at<float>(j + 1, i));
 
                         // TODO сделать фильтрацию слабых точек по слабому контрасту
                         float contrast = center + dvalue;
@@ -354,8 +353,8 @@ bool phg::SIFT::buildLocalOrientationHists(const cv::Mat &img, size_t i, size_t 
             //                                atan( (L(x, y + 1) − L(x, y − 1)) / (L(x + 1, y) − L(x − 1, y)) )
 
 
-            float xx = img.at<float>(y + 1, x) - img.at<float>(y - 1, x);
-            float yy = img.at<float>(y, x + 1) - img.at<float>(y, x - 1);
+            float yy = img.at<float>(y + 1, x) - img.at<float>(y - 1, x);
+            float xx = img.at<float>(y, x + 1) - img.at<float>(y, x - 1);
             double orientation = std::atan2(yy,xx);// подсказка - используйте atan2(dy, dx)
 
             orientation = orientation * 180.0 / M_PI;
@@ -372,19 +371,14 @@ bool phg::SIFT::buildLocalOrientationHists(const cv::Mat &img, size_t i, size_t 
         }
     }
 
-    float sum_smoothed[DESCRIPTOR_NBINS] = {0.0f};
     std::vector<double> mask = {0.25, 0.5, 0.25};
     for (int i = 0; i < DESCRIPTOR_NBINS; ++i) {
 
         int left = i-1 < 0 ? DESCRIPTOR_NBINS-1 : i-1;
         int right = i+1 >= DESCRIPTOR_NBINS ? 0 : i+1;
 
-        sum_smoothed[i] = sum[left] * mask[0] + mask[1] * sum[i]+ mask[1] * sum[right];
-    }
-
-    for (size_t bin = 0; bin < ORIENTATION_NHISTS; ++bin) {
-        votes[bin] = sum_smoothed[bin];
-        biggestVote = std::max(biggestVote, sum[bin]);
+        votes[i] = sum[left] * mask[0] + mask[1] * sum[i]+ mask[1] * sum[right];
+        biggestVote = std::max(biggestVote, votes[i]);
     }
 
     return true;
@@ -417,13 +411,18 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
                     if (y - 1 < 0 || y + 1 >= img.rows || x - 1 < 0 || x + 1 >= img.cols)
                         return false;
 
-                    float xx = img.at<float>(y + 1, x) - img.at<float>(y - 1, x);
-                    float yy = img.at<float>(y, x + 1) - img.at<float>(y, x - 1);
+                    float yy = img.at<float>(y + 1, x) - img.at<float>(y - 1, x);
+                    float xx = img.at<float>(y, x + 1) - img.at<float>(y, x - 1);
                     double magnitude = std::sqrt(std::pow(xx, 2) + std::pow(yy,2));// done
 
                     double orientation = atan2(yy,xx); // done
                     orientation = orientation * 180.0 / M_PI;
+
                     orientation = (orientation + 90.0);
+                    if (orientation <  0.0)   orientation += 360.0;
+                    if (orientation >= 360.0) orientation -= 360.0;
+
+                    orientation -= angle;
                     if (orientation <  0.0)   orientation += 360.0;
                     if (orientation >= 360.0) orientation -= 360.0;
 
@@ -435,6 +434,7 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
                     rassert(bin < DESCRIPTOR_NBINS, 361236315613);
                     sum[bin] += magnitude;
                     // TODO хорошая идея добавить трилинейную интерполяцию как предложено в статье, или хотя бы сэмулировать ее - сгладить получившиеся гистограммы
+
                 }
             }
             //https://coderoad.ru/3165107/%D0%A1%D0%B3%D0%BB%D0%B0%D0%B6%D0%B8%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5-%D0%93%D0%B8%D1%81%D1%82%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B
@@ -461,7 +461,7 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
 
             float *votes = &(descriptor[(hstj * DESCRIPTOR_SIZE + hsti) * DESCRIPTOR_NBINS]); // нашли где будут лежать корзины нашей гистограммы
             for (int bin = 0; bin < DESCRIPTOR_NBINS; ++bin) {
-                votes[bin] = sum_smoothed[bin] * vec_sum;
+                votes[bin] = std::round(sum_smoothed[bin]) /** vec_sum*/;
             }
         }
     }
