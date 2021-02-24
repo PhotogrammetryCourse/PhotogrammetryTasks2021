@@ -10,7 +10,7 @@
 #define KD_TREE_SEARCH_LEAF_COUNT 32
 
 // граница ratio test, по которой делается отсеивание
-#define FILTER_RATIO_TEST_THRESHOLD 0.7
+#define FILTER_RATIO_TEST_THRESHOLD 0.6
 
 namespace phg {
 

@@ -21,7 +21,7 @@
 // TODO enable both toggles for testing custom detector & matcher
 #define ENABLE_MY_DESCRIPTOR 0
 #define ENABLE_MY_MATCHING 1
-#define ENABLE_GPU_BRUTEFORCE_MATCHER 1
+#define ENABLE_GPU_BRUTEFORCE_MATCHER 0 // D:
 
 #if ENABLE_MY_MATCHING
 const double max_keypoints_rmse_px = 1.0;
