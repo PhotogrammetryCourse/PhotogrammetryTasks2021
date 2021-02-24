@@ -30,8 +30,12 @@ void phg::FlannMatcher::knnMatch(const cv::Mat &query_desc, std::vector<std::vec
 
     matches.clear();
     matches.resize(indices.rows);
-    for (int i = 0; i < indices.rows; ++i) {
-        for (int j = 0; j < indices.cols; ++j) {
+#pragma omp parallel for
+    for (int i = 0; i < indices.rows; ++i)
+    {
+        matches.at(i).reserve(2);
+        for (int j = 0; j < indices.cols; ++j)
+        {
             int train_idx = indices.at<int>(i,j);
             float distance = std::sqrt(dists.at<float>(i,j));
             int query_idx = i;
