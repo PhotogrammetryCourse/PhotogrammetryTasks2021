@@ -7,11 +7,15 @@ void phg::DescriptorMatcher::filterMatchesRatioTest(const std::vector<std::vecto
                                                     std::vector<cv::DMatch> &filtered_matches)
 {
     filtered_matches.clear();
+    std::cout <<"filtered matched, match# " << matches.size() << "\n";
     for (int i = 0; i < matches.size(); ++i) {
-        if (matches[i][0].distance/matches[i][1].distance < 0.5) {
+        if (matches[i][0].distance * 1.8 < matches[i][1].distance) {
             filtered_matches.push_back(matches[i][0]);
+        } else {
+            //std::cout << matches[i][0].distance << " " << matches[i][1].distance << "\n";
         }
     }
+    std::cout << filtered_matches.size() << "\n";
 }
 
 
@@ -41,7 +45,7 @@ void phg::DescriptorMatcher::filterMatchesClusters(const std::vector<cv::DMatch>
 
 //    // размерность всего 2, так что точное KD-дерево
     std::shared_ptr<cv::flann::IndexParams> index_params = flannKdTreeIndexParams(1);
-    std::shared_ptr<cv::flann::SearchParams> search_params = flannKsTreeSearchParams(10); //Вообще мне кажется так много чекать не особо надо, ну да ладно, скажем, что не жалко.
+    std::shared_ptr<cv::flann::SearchParams> search_params = flannKsTreeSearchParams(25); //Вообще мне кажется так много чекать не особо надо, ну да ладно, скажем, что не жалко.
 
     std::shared_ptr<cv::flann::Index> index_query = flannKdTreeIndex(points_query, index_params);
     std::shared_ptr<cv::flann::Index> index_train = flannKdTreeIndex(points_train, index_params);
