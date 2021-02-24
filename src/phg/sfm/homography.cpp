@@ -197,7 +197,7 @@ cv::Mat estimateHomographyRANSAC(const std::vector<cv::Point2f> &points_lhs, con
     const int n_matches = points_lhs.size();
 
     // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
-    const int n_trials = 1000;
+    const int n_trials = 700; // для T = 500 точек, w=0.3, n=4
 
     const int n_samples = 4;
     uint64_t seed = 1;
