@@ -18,9 +18,9 @@
 #include "utils/test_utils.h"
 
 
-// TODO enable both toggles for testing custom detector & matcher
+// TODO enable both toggles for testing custom detector & matcher - done
 #define ENABLE_MY_DESCRIPTOR 0
-#define ENABLE_MY_MATCHING 0
+#define ENABLE_MY_MATCHING 1
 #define ENABLE_GPU_BRUTEFORCE_MATCHER 0
 
 #if ENABLE_MY_MATCHING
