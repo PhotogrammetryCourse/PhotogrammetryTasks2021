@@ -45,7 +45,7 @@ __kernel void bruteforce_matcher(__global const float* train,
         float train_value_dim = train[train_idx * NDIM + dim_id];
         for (int query_local_i = 0; query_local_i < KEYPOINTS_PER_WG; ++query_local_i) {
             float query_value_dim = query_local[query_local_i * NDIM + dim_id];
-            dist2_for_reduction[dim_id] = pow(query_value_dim - train_value_dim, 2);
+            dist2_for_reduction[dim_id] = (query_value_dim - train_value_dim) * (query_value_dim - train_value_dim);
             // посчитать квадрат расстояния по нашей размерности (dim_id) и сохранить его в нашу ячейку в dist2_for_reduction
 
             barrier(CLK_LOCAL_MEM_FENCE);
@@ -67,20 +67,21 @@ __kernel void bruteforce_matcher(__global const float* train,
 
                 #define BEST_INDEX        0
                 #define SECOND_BEST_INDEX 1
-
+                const int bestidx = query_local_i * 2 + BEST_INDEX;
+                const int sndbestidx = query_local_i * 2 + SECOND_BEST_INDEX;
                 // пытаемся улучшить самое лучшее сопоставление для локального дескриптора
-                if (dist2 <= res_distance2_local[query_local_i * 2 + BEST_INDEX]) {
+                if (dist2 <= res_distance2_local[bestidx]) {
                     // не забываем что прошлое лучшее сопоставление теперь стало вторым по лучшевизне (на данный момент)
-                    res_distance2_local[query_local_i * 2 + SECOND_BEST_INDEX] = res_distance2_local[query_local_i * 2 + BEST_INDEX];
-                    res_train_idx_local[query_local_i * 2 + SECOND_BEST_INDEX] = res_train_idx_local[query_local_i * 2 + BEST_INDEX];
+                    res_distance2_local[sndbestidx] = res_distance2_local[bestidx];
+                    res_train_idx_local[sndbestidx] = res_train_idx_local[bestidx];
                     // заменяем нашим (dist2, train_idx) самое лучшее сопоставление для локального дескриптора
-                    res_distance2_local[query_local_i * 2 + BEST_INDEX] = dist2;
-                    res_train_idx_local[query_local_i * 2 + BEST_INDEX] = train_idx;
+                    res_distance2_local[bestidx] = dist2;
+                    res_train_idx_local[bestidx] = train_idx;
 
-                } else if (dist2 <= res_distance2_local[query_local_i * 2 + SECOND_BEST_INDEX]) { // может мы улучшили хотя бы второе по лучшевизне сопоставление?
+                } else if (dist2 <= res_distance2_local[sndbestidx]) { // может мы улучшили хотя бы второе по лучшевизне сопоставление?
                     // заменяем второе по лучшевизне сопоставление для локального дескриптора
-                    res_distance2_local[query_local_i * 2 + SECOND_BEST_INDEX] = dist2;
-                    res_train_idx_local[query_local_i * 2 + SECOND_BEST_INDEX] = train_idx;
+                    res_distance2_local[sndbestidx] = dist2;
+                    res_train_idx_local[sndbestidx] = train_idx;
                 }
             }
         }
@@ -88,14 +89,16 @@ __kernel void bruteforce_matcher(__global const float* train,
 
     // итак, мы нашли два лучших сопоставления для наших KEYPOINTS_PER_WG дескрипторов, надо сохрнить эти результаты в глобальную память
     if (dim_id < KEYPOINTS_PER_WG * 2) { // полагаемся на то что нам надо прогрузить KEYPOINTS_PER_WG*2==4*2<dim_id<=NDIM==128
-        int query_local_i = dim_id / 2;
-        int k = dim_id % 2;
+        const int query_local_i = dim_id / 2;
+        const int k = dim_id % 2;
+        const int query_id = query_id0 + query_local_i;
+        const int loc_idx = query_local_i * 2 + k;
+        const int glob = query_id * 2 + k;
 
-        int query_id = query_id0 + query_local_i;
         if (query_id < n_query_desc) {
-            res_train_idx[query_id * 2 + k] = res_train_idx_local[query_local_i * 2 + k];
-            res_query_idx[query_id * 2 + k] = query_id;//  хм, не масло масленное ли? :))))
-            res_distance[query_id * 2 + k] = sqrt(res_distance2_local[query_local_i * 2 + k]);// TODO не забудьте извлечь корень
+            res_train_idx[glob] = res_train_idx_local[loc_idx];
+            res_query_idx[glob] = query_id;//  хм, не масло масленное ли? :))))
+            res_distance[glob] = sqrt(res_distance2_local[loc_idx]);// не забудьте извлечь корень
         }
     }
 }
