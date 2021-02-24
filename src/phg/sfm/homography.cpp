@@ -84,8 +84,8 @@ namespace {
             double w1 = ws1[i];
 
             // 8 elements of matrix + free term as needed by gauss routine
-            A.push_back({0, 0, 0, -x0*w1, -y0*w1, -w0*w1, x0*y1, y0*y1});
-            A.push_back({x0*w1, y0*w1, w0*w1, 0, 0, 0, -x0*x1, -y0*x1});
+            A.push_back({0, 0, 0, -x0*w1, -y0*w1, -w0*w1, x0*y1, y0*y1, -w0*y1});
+            A.push_back({x0*w1, y0*w1, w0*w1, 0, 0, 0, -x0*x1, -y0*x1, w0*x1});
         }
 
         int res = gauss(A, H);
@@ -184,6 +184,9 @@ namespace {
                                                   points_rhs[sample[0]], points_rhs[sample[1]], points_rhs[sample[2]], points_rhs[sample[3]]);
             //Ну не, зачем было справшивать сколько точек случайно сэмплировать, если используется всё равно только первые 4.
 
+
+            cv::Point2d proj = phg::transformPoint(points_lhs[sample[0]], H);
+
             int support = 0;
             for (int i_point = 0; i_point < n_matches; ++i_point) {
                 try {
@@ -235,12 +238,12 @@ cv::Mat phg::findHomographyCV(const std::vector<cv::Point2f> &points_lhs, const 
 cv::Point2d phg::transformPoint(const cv::Point2d &pt, const cv::Mat &T)
 {
     cv::Point2d newPt;
-    newPt.x = T.at<float>(0, 0) * pt.x + T.at<float>(0, 1) * pt.y + T.at<float>(0, 2);
-    newPt.y = T.at<float>(1, 0) * pt.x + T.at<float>(1, 1) * pt.y + T.at<float>(1, 2);
-    double z = T.at<float>(2, 0) * pt.x + T.at<float>(2, 1) * pt.y + T.at<float>(2, 2);
+    newPt.x = T.at<double>(0, 0) * pt.x + T.at<double>(0, 1) * pt.y + T.at<double>(0, 2);
+    newPt.y = T.at<double>(1, 0) * pt.x + T.at<double>(1, 1) * pt.y + T.at<double>(1, 2);
+    double z = T.at<double>(2, 0) * pt.x + T.at<double>(2, 1) * pt.y + T.at<double>(2, 2);
+
     newPt.x /= z;
     newPt.y /= z;
-
     return newPt;
 }
 
