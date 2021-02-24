@@ -11,6 +11,7 @@ install:
   - sudo apt install -y cmake
   - if [ $TRAVIS_OS_NAME = "linux" ]; then
       sudo bash .travis/install_opencv451.sh;
+      sudo bash .travis/install_intel_opencl.sh;
     fi;
 
 script:
