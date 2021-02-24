@@ -201,8 +201,33 @@ float parabolaFitting(float x0, float x1, float x2) {
     float b = x1 - x0 - a;
     // extremum is at -b/(2*a), but our system coordinate start (i) is at 1, so minus 1
     float shift = - b / (2.0f * a) - 1.0f;
+
     return shift;
 }
+
+float parabolaFittingExtremeValue(float x0, float x1, float x2) {
+    rassert((x1 >= x0 && x1 >= x2) || (x1 <= x0 && x1 <= x2), 12541241241241);
+
+    //     a*0^2+b*0+c=x0
+    // a*1^2+b*1+c=x1
+    // a*2^2+b*2+c=x2
+
+    // c=x0
+    // a+b+x0=x1     (2)
+    // 4*a+2*b+x0=x2 (3)
+
+    // (3)-2*(2): 2*a-y0=y2-2*y1; a=(y2-2*y1+y0)/2
+    // (2):       b=y1-y0-a
+    float a = (x2-2.0f*x1+x0) / 2.0f;
+    float b = x1 - x0 - a;
+    // extremum is at -b/(2*a), but our system coordinate start (i) is at 1, so minus 1
+    float shift = - b / (2.0f * a) - 1.0f;
+    float sh = shift + 1;
+    float dv = x0 + a * (sh * sh) + b * sh;
+
+    return dv;
+}
+
 }
 
 void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussianPyramid, const std::vector<cv::Mat> &DoGPyramid,
@@ -267,9 +292,17 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                         dx = parabolaFitting(DoGs[1].at<float>(j, i-1),DoGs[1].at<float>(j, i),DoGs[1].at<float>(j, i+1));
                         dy = parabolaFitting(DoGs[1].at<float>(j-1, i),DoGs[1].at<float>(j, i),DoGs[1].at<float>(j + 1, i));
 
+                        float tx = parabolaFittingExtremeValue(DoGs[1].at<float>(j, i-1),DoGs[1].at<float>(j, i),DoGs[1].at<float>(j, i+1));
+                        float ty = parabolaFittingExtremeValue(DoGs[1].at<float>(j-1, i),DoGs[1].at<float>(j, i),DoGs[1].at<float>(j + 1, i));
+
+                        float cntr = (tx + ty) / 2;
+
+                        if( std::abs(dx) > 0.5f || std::abs(dy) > 0.5f)
+                            continue;
+
                         // TODO сделать фильтрацию слабых точек по слабому контрасту
                         float contrast = center + dvalue;
-                        if (contrast < contrast_threshold / OCTAVE_NLAYERS) // TODO почему порог контрастности должен уменьшаться при увеличении числа слоев в октаве?
+                        if (cntr < contrast_threshold / OCTAVE_NLAYERS) // TODO почему порог контрастности должен уменьшаться при увеличении числа слоев в октаве?
                             continue;
 
                         kp.pt = cv::Point2f((i + 0.5 + dx) * octave_downscale, (j + 0.5 + dy) * octave_downscale);
@@ -461,7 +494,7 @@ bool phg::SIFT::buildDescriptor(const cv::Mat &img, float px, float py, double d
 
             float *votes = &(descriptor[(hstj * DESCRIPTOR_SIZE + hsti) * DESCRIPTOR_NBINS]); // нашли где будут лежать корзины нашей гистограммы
             for (int bin = 0; bin < DESCRIPTOR_NBINS; ++bin) {
-                votes[bin] = std::round(sum_smoothed[bin]) /** vec_sum*/;
+                votes[bin] = sum_smoothed[bin]* vec_sum;
             }
         }
     }
