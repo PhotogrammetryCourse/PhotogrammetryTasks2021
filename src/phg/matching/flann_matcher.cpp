@@ -21,7 +21,9 @@ void phg::FlannMatcher::knnMatch(const cv::Mat &query_desc, std::vector<std::vec
 
     //     cout << query_desc << endl;
 
-    cv::Mat indices, dists; int knn;
+    size_t n_desc = query_desc.rows;
+    cv::Mat indices(n_desc, k, CV_32SC1);
+    cv::Mat dists(n_desc, k, CV_32FC1);
 
     //indices - список индексов точек из train_desc
     flann_index->knnSearch(query_desc, indices, dists, k, *(search_params.get() ));
@@ -31,7 +33,7 @@ void phg::FlannMatcher::knnMatch(const cv::Mat &query_desc, std::vector<std::vec
     for (int i = 0; i < indices.rows; ++i) {
         for (int j = 0; j < indices.cols; ++j) {
             int train_idx = indices.at<int>(i,j);
-            float distance = dists.at<float>(i,j);
+            float distance = std::sqrt(dists.at<float>(i,j));
             int query_idx = i;
             cv::DMatch match(query_idx,train_idx,distance);
             matches.at(i).push_back(match);
