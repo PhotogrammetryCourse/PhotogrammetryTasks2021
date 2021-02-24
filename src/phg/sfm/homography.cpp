@@ -7,6 +7,7 @@
 
 #define EPS 1e-8
 
+// well, I tried D:
 #define USE_BETTER_RANSAC 0
 
 #if USE_BETTER_RANSAC
@@ -15,8 +16,11 @@
 
 #else
 
-#   define RANSAC_SUCCESS_PROBABILITY 0.5
-#   define RANSAC_INLIER_RATIO        0.2
+#   define RANSAC_SUCCESS_PROBABILITY  0.15
+#   define RANSAC_INLIER_RATIO         0.2
+
+// use to fix number of iterations
+// #   define RANSAC_OVERRIDE_ITERATION_COUNT 10000
 
 #endif
 
@@ -219,15 +223,18 @@ namespace {
         const auto log_c = [&log_factorial](size_t n, size_t k) {
             return log_factorial.at(n) - log_factorial.at(k) - log_factorial.at(n - k);
         }; 
-#else
+#else // "basic" RANSAC
+#   ifdef RANSAC_OVERRIDE_ITERATION_COUNT
+        const int n_trials = RANSAC_OVERRIDE_ITERATION_COUNT;
+#   else
         // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
-        const float w = RANSAC_INLIER_RATIO;
-        const float wn = std::pow(w, n_samples);
+        const double w = RANSAC_INLIER_RATIO;
+        const double wn = std::pow(w, n_samples);
         const int n_trials = 
             std::log(1 - RANSAC_SUCCESS_PROBABILITY) / std::log(1 - wn) // expected number of iterations
             +
             std::sqrt(wn) / wn;                                         // standard deviation for confidence 
- 
+#   endif
         int best_support = 0;
 #endif
         cv::Mat best_H;
@@ -309,7 +316,8 @@ namespace {
 
 cv::Mat phg::findHomography(const std::vector<cv::Point2f> &points_lhs, const std::vector<cv::Point2f> &points_rhs)
 {
-    // return cv::findHomography(points_lhs, points_rhs, cv::RANSAC);
+    // return cv::findHomography(points_lhs, points_rhs, cv::RANSAC); // testing
+
     return estimateHomographyRANSAC(points_lhs, points_rhs);
 }
 
@@ -323,6 +331,8 @@ cv::Mat phg::findHomographyCV(const std::vector<cv::Point2f> &points_lhs, const 
 // таким преобразованием внутри занимается функции cv::perspectiveTransform и cv::warpPerspective
 cv::Point2d phg::transformPoint(const cv::Point2d &pt, const cv::Mat &T)
 {
+    // return phg::transformPointCV(pt, T); // testing
+
     cv::Mat pt_mat(3, 1, CV_64FC1);
     pt_mat.at<double>(0, 0) = pt.x;
     pt_mat.at<double>(1, 0) = pt.y;

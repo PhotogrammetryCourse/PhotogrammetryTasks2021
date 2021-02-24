@@ -21,9 +21,13 @@ cv::Mat phg::stitchPanorama(const std::vector<cv::Mat> &imgs,
     // вектор гомографий, для каждой картинки описывает преобразование до корня
     std::vector<cv::Mat> Hs(n_images);
     {
-        // здесь надо посчитать вектор Hs
-        // при этом можно обойтись n_images - 1 вызовами функтора homography_builder
-        throw std::runtime_error("not implemented yet");
+        for (size_t i = 0; i < n_images; ++i) {
+            if (parent[i] == -1) {
+                Hs[i] = cv::Mat(3, 3, CV_64FC1, 1.0);
+            } else {
+                Hs[i] = homography_builder(imgs[i], imgs[parent[i]]);
+            }
+        }
     }
 
     bbox2<double, cv::Point2d> bbox;
@@ -46,19 +50,19 @@ cv::Mat phg::stitchPanorama(const std::vector<cv::Mat> &imgs,
     // из-за растяжения пикселей при использовании прямой матрицы гомографии после отображения между пикселями остается пустое пространство
     // лучше использовать обратную и для каждого пикселя на итоговвой картинке проверять, с какой картинки он может получить цвет
     // тогда в некоторых пикселях цвет будет дублироваться, но изображение будет непрерывным
-//        for (int i = 0; i < n_images; ++i) {
-//            for (int y = 0; y < imgs[i].rows; ++y) {
-//                for (int x = 0; x < imgs[i].cols; ++x) {
-//                    cv::Vec3b color = imgs[i].at<cv::Vec3b>(y, x);
-//
-//                    cv::Point2d pt_dst = applyH(cv::Point2d(x, y), Hs[i]) - bbox.min();
-//                    int y_dst = std::max(0, std::min((int) std::round(pt_dst.y), result_height - 1));
-//                    int x_dst = std::max(0, std::min((int) std::round(pt_dst.x), result_width - 1));
-//
-//                    result.at<cv::Vec3b>(y_dst, x_dst) = color;
-//                }
-//            }
-//        }
+    for (int i = 0; i < n_images; ++i) {
+        for (int y = 0; y < imgs[i].rows; ++y) {
+            for (int x = 0; x < imgs[i].cols; ++x) {
+                cv::Vec3b color = imgs[i].at<cv::Vec3b>(y, x);
+
+                cv::Point2d pt_dst = transformPoint(cv::Point2d(x, y), Hs[i]) - bbox.min();
+                int y_dst = std::max(0, std::min((int) std::round(pt_dst.y), result_height - 1));
+                int x_dst = std::max(0, std::min((int) std::round(pt_dst.x), result_width - 1));
+
+                result.at<cv::Vec3b>(y_dst, x_dst) = color;
+            }
+        }
+    }
 
     std::vector<cv::Mat> Hs_inv;
     std::transform(Hs.begin(), Hs.end(), std::back_inserter(Hs_inv), [&](const cv::Mat &H){ return H.inv(); });

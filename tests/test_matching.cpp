@@ -21,7 +21,7 @@
 // TODO enable both toggles for testing custom detector & matcher
 #define ENABLE_MY_DESCRIPTOR 0
 #define ENABLE_MY_MATCHING 1
-#define ENABLE_GPU_BRUTEFORCE_MATCHER 0
+#define ENABLE_GPU_BRUTEFORCE_MATCHER 1
 
 #if ENABLE_MY_MATCHING
 const double max_keypoints_rmse_px = 1.0;
@@ -324,6 +324,11 @@ namespace {
         for (int i = 0; i < (int) knn_matches_bruteforce_gpu.size(); ++i) {
             ASSERT_EQ(knn_matches_bruteforce_gpu[i].size(), knn_matches_bruteforce[i].size());
             for (int j = 0; j < (int) knn_matches_bruteforce_gpu[i].size(); ++j) {
+		if (false && !matcheq(knn_matches_bruteforce_gpu[i][j], knn_matches_bruteforce[i][j])) {
+			std::cout << "[" << i << ", " << j << "] not equal : (" 
+				  << knn_matches_bruteforce_gpu[i][j].queryIdx << ", " << knn_matches_bruteforce_gpu[i][j].trainIdx << ", " << knn_matches_bruteforce_gpu[i][j].distance << ") vs (" 
+				  << knn_matches_bruteforce[i][j].queryIdx << ", " << knn_matches_bruteforce[i][j].trainIdx << ", " << knn_matches_bruteforce[i][j].distance  << ")" << std::endl;
+		}
                 ASSERT_TRUE(matcheq(knn_matches_bruteforce_gpu[i][j], knn_matches_bruteforce[i][j]));
             }
         }

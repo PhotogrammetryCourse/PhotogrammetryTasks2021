@@ -17,7 +17,7 @@ __kernel void bruteforce_matcher(__global const float* train,
 {
     // каждая рабочая группа обрабатывает KEYPOINTS_PER_WG=4 дескриптора из query (сопоставляет их со всеми train)
 
-    const unsigned int dim_id = get_global_id(0); // от 0 до 127, номер размерности за которую ответственен поток
+    const unsigned int dim_id = get_local_id(0); // от 0 до 127, номер размерности за которую ответственен поток
     const unsigned int query_id0 = KEYPOINTS_PER_WG * get_global_id(1); // номер первого дескриптора из четверки запросов query, которые наша рабочая группа должна сопоставлять
 
     // храним KEYPOINTS_PER_WG=4 дескриптора-query:
@@ -31,50 +31,60 @@ __kernel void bruteforce_matcher(__global const float* train,
     }
 
     // грузим 4 дескриптора-query (для каждого из четырех дескрипторов каждый поток грузит значение своей размерности dim_id)
-    // TODO: т.е. надо прогрузить в query_local все KEYPOINTS_PER_WG=4 дескриптора из query (начиная с индекса query_id0) (а если часть из них выходит за пределы n_query_desc - грузить нули)
+    for (unsigned int query_local_i = 0; query_local_i < KEYPOINTS_PER_WG; ++query_local_i) {
+        query_local[query_local_i * NDIM + dim_id] = 
+            query_local_i + query_id0 < n_query_desc 
+            ? query[(query_id0 + query_local_i) * NDIM + dim_id] 
+            : 0;
+    }
 
     barrier(CLK_LOCAL_MEM_FENCE); // дожидаемся прогрузки наших дескрипторов-запросов
 
-    for (int train_idx = 0; train_idx < n_train_desc; ++train_idx) {
+    __local float dist2_for_reduction[KEYPOINTS_PER_WG][NDIM];
+    for (uint train_idx = 0; train_idx < n_train_desc; ++train_idx) {
         float train_value_dim = train[train_idx * NDIM + dim_id];
-        for (int query_local_i = 0; query_local_i < KEYPOINTS_PER_WG; ++query_local_i) {
+        for (uint query_local_i = 0; query_local_i < KEYPOINTS_PER_WG; ++query_local_i) {
             // хотим посчитать расстояние:
             // от дескриптора-query в локальной памяти  (#query_local_i)
             // до дескриптора-train в глобальной памяти (#train_idx)
-
-            // TODO посчитать квадрат расстояния по нашей размерности (dim_id) и сохранить его в нашу ячейку в dist2_for_reduction
+            dist2_for_reduction[query_local_i][dim_id] = pown(train_value_dim - query_local[query_local_i * NDIM + dim_id], 2);
 
             barrier(CLK_LOCAL_MEM_FENCE);
-            // TODO суммируем редукцией все что есть в dist2_for_reduction
             int step = NDIM / 2;
             while (step > 0) {
                 if (dim_id < step) {
-                    // TODO
+                    dist2_for_reduction[query_local_i][dim_id] += dist2_for_reduction[query_local_i][dim_id + step];
                 }
                 barrier(CLK_LOCAL_MEM_FENCE);
                 step /= 2;
             }
 
-            if (dim_id == 0) {
-                // master поток смотрит на полученное расстояние и проверяет не лучше ли оно чем то что было до сих пор
-                float dist2 = dist2_for_reduction[0]; // взяли найденную сумму квадратов (это квадрат расстояния до текущего кандидата train_idx)
+            if (dim_id == 0) { // && query_local_i + query_id0 < n_query_desc) {
+		// master поток смотрит на полученное расстояние и проверяет не лучше ли оно чем то что было до сих пор
+                float dist2 = dist2_for_reduction[query_local_i][0]; // взяли найденную сумму квадратов (это квадрат расстояния до текущего кандидата train_idx)
 
                 #define BEST_INDEX        0
                 #define SECOND_BEST_INDEX 1
+		
+		if (false && query_id0 == 0)
+			printf("%d %d -> %f", query_local_i + query_id0, train_idx, sqrt(dist2));
 
                 // пытаемся улучшить самое лучшее сопоставление для локального дескриптора
                 if (dist2 <= res_distance2_local[query_local_i * 2 + BEST_INDEX]) {
                     // не забываем что прошлое лучшее сопоставление теперь стало вторым по лучшевизне (на данный момент)
                     res_distance2_local[query_local_i * 2 + SECOND_BEST_INDEX] = res_distance2_local[query_local_i * 2 + BEST_INDEX];
                     res_train_idx_local[query_local_i * 2 + SECOND_BEST_INDEX] = res_train_idx_local[query_local_i * 2 + BEST_INDEX];
-                    // TODO заменяем нашим (dist2, train_idx) самое лучшее сопоставление для локального дескриптора
+                    
+                    res_distance2_local[query_local_i * 2 + BEST_INDEX] = dist2;
+                    res_train_idx_local[query_local_i * 2 + BEST_INDEX] = train_idx;
                 } else if (dist2 <= res_distance2_local[query_local_i * 2 + SECOND_BEST_INDEX]) { // может мы улучшили хотя бы второе по лучшевизне сопоставление?
-                    // TODO заменяем второе по лучшевизне сопоставление для локального дескриптора
+                    res_distance2_local[query_local_i * 2 + SECOND_BEST_INDEX] = dist2;
+                    res_train_idx_local[query_local_i * 2 + SECOND_BEST_INDEX] = train_idx;
                 }
             }
-        }
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
     }
-
     // итак, мы нашли два лучших сопоставления для наших KEYPOINTS_PER_WG дескрипторов, надо сохрнить эти результаты в глобальную память
     if (dim_id < KEYPOINTS_PER_WG * 2) { // полагаемся на то что нам надо прогрузить KEYPOINTS_PER_WG*2==4*2<dim_id<=NDIM==128
         int query_local_i = dim_id / 2;
@@ -82,9 +92,9 @@ __kernel void bruteforce_matcher(__global const float* train,
 
         int query_id = query_id0 + query_local_i;
         if (query_id < n_query_desc) {
-            res_train_idx[query_id * 2 + k] = // TODO
-            res_query_idx[query_id * 2 + k] = // TODO хм, не масло масленное ли?
-            res_distance [query_id * 2 + k] = // TODO не забудьте извлечь корень
+            res_train_idx[query_id * 2 + k] = res_train_idx_local[query_local_i * 2 + k];
+            res_query_idx[query_id * 2 + k] = query_id;
+            res_distance [query_id * 2 + k] = sqrt(res_distance2_local[query_local_i * 2 + k]);
         }
     }
 }
