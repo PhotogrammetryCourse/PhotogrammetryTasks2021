@@ -19,8 +19,9 @@
 
 
 // TODO enable both toggles for testing custom detector & matcher
+//
 #define ENABLE_MY_DESCRIPTOR 0
-#define ENABLE_MY_MATCHING 0
+#define ENABLE_MY_MATCHING 1
 #define ENABLE_GPU_BRUTEFORCE_MATCHER 0
 
 #if ENABLE_MY_MATCHING
@@ -118,6 +119,8 @@ namespace {
         phg::FlannMatcher matcher;
         matcher.train(descriptors2);
         matcher.knnMatch(descriptors1, knn_matches, 2);
+
+        std::cout << "knn_matches cnt: " << knn_matches.size() << "\n";
 #else
         Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
         matcher->knnMatch( descriptors1, descriptors2, knn_matches, 2 );
@@ -133,11 +136,13 @@ namespace {
         {
             std::vector<DMatch> tmp;
             phg::DescriptorMatcher::filterMatchesClusters(good_matches, keypoints1, keypoints2, tmp);
+            std::cout << "matc# aftrer cluster test: " << tmp.size() << "\n";
             std::swap(tmp, good_matches);
         }
 #else
         {
             std::vector<DMatch> tmp;
+            std::cout << "filter matched gms&\n";
             phg::filterMatchesGMS(good_matches, keypoints1, keypoints2, img1.size(), img2.size(), tmp);
             std::swap(tmp, good_matches);
         }
@@ -160,7 +165,7 @@ namespace {
 
         keypoints_rmse = 0;
         for (int i = 0; i < (int) good_matches.size(); ++i) {
-#if ENABLE_MY_MATCHING
+#if  ENABLE_MY_MATCHING
             cv::Point2f pt = phg::transformPoint(points1[i], H);
 #else
             cv::Point2f pt = phg::transformPointCV(points1[i], H);
@@ -176,7 +181,7 @@ namespace {
         for (int y = 0; y < img1.rows; ++y) {
             for (int x = 0; x < img1.cols; ++x) {
                 cv::Vec3b col1 = img1.at<cv::Vec3b>(y, x);
-#if ENABLE_MY_MATCHING
+#if  ENABLE_MY_MATCHING
                 cv::Point2f pt = phg::transformPoint(cv::Point2f(x, y), H);
 #else
                 cv::Point2f pt = phg::transformPointCV(cv::Point2f(x, y), H);
@@ -226,6 +231,7 @@ namespace {
             detector->detectAndCompute( img1, cv::noArray(), keypoints1, descriptors1 );
             detector->detectAndCompute( img2, cv::noArray(), keypoints2, descriptors2 );
 
+            std::cout << "points are detected:" << keypoints1.size() << " " << keypoints2.size() << "\n";
             testStitching(img1, img2, keypoints1, keypoints2, descriptors1, descriptors2);
         }
 
@@ -237,6 +243,7 @@ namespace {
             phg::SIFT mySIFT;
             mySIFT.detectAndCompute(img1, keypoints1, descriptors1);
             mySIFT.detectAndCompute(img1, keypoints2, descriptors2);
+            std::cout << "detect and compute done!\n";
 
             testStitching(img1, img2, keypoints1, keypoints2, descriptors1, descriptors2);
         }
@@ -404,7 +411,7 @@ namespace {
                 points2.push_back(keypoints2[match.trainIdx].pt);
             }
 
-#if ENABLE_MY_MATCHING
+#if  ENABLE_MY_MATCHING
             H = phg::findHomography(points1, points2);
 #else
             H = phg::findHomographyCV(points1, points2);
@@ -530,6 +537,7 @@ namespace {
 
 }
 
+
 TEST (MATCHING, SimpleMatching) {
 
     cv::Mat img1 = cv::imread("data/src/test_matching/hiking_left.JPG");
@@ -569,6 +577,7 @@ TEST (MATCHING, SimpleMatching) {
 #endif
     EXPECT_GT(good_ratio_and_clusters, 0.9);
 }
+
 
 namespace {
 
