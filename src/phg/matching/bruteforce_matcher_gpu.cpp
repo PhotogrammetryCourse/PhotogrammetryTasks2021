@@ -73,7 +73,7 @@ void phg::BruteforceMatcherGPU::knnMatch(const cv::Mat &query_desc,
 
     t.restart();
     const unsigned int keypoints_per_wg = 4;
-    std::string kernel_defines = "-D KEYPOINTS_PER_WG=" + to_string(keypoints_per_wg) + " -D RUN ";
+    std::string kernel_defines = "-D KEYPOINTS_PER_WG=" + to_string(keypoints_per_wg);
     ocl::Kernel bruteforce_matcher(bruteforce_matcher_kernel, bruteforce_matcher_kernel_length, "bruteforce_matcher", kernel_defines);
     bruteforce_matcher.compile(BF_MATCHER_GPU_VERBOSE);
     if (BF_MATCHER_GPU_VERBOSE) std::cout << "[BFMatcher] kernel compiled in " << t.elapsed() << " s" << std::endl;
