@@ -27,7 +27,7 @@ find_package(OpenCV 4.5.1 REQUIRED)
 # make -j12
 # sudo make install
 # укажите для CMake путь к OpenCV:
-# в CLion это делается через File->Settings->Build, Execution, Deployment->CMake->CMake options: -DOpenCV_DIR=/opt/opencv451
+# в CLion это делается через File->Settings->Build, Execution, Deployment->CMake->CMake options: -DOpenCV_DIR=/opt/opencv451/lib/cmake/opencv4
 # там же сразу стоит добавить в дополнению к Debug сборке - сборку с включенными оптимизациями и отладочными символами - RelWithDebInfo
 #
 #     Windows: (но рекомендуется использовать Linux)
