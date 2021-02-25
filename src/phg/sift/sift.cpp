@@ -17,7 +17,7 @@
 
 #define DEBUG_ENABLE     0
 #define DEBUG_PATH       std::string("data/debug/test_sift/debug/")
-#define INCREMENTAL_SIGMA 1
+#define INCREMENTAL_SIGMA 1.6
 
 #define NOCTAVES                    3                    // число октав
 #define OCTAVE_NLAYERS              3                    // в [lowe04] это число промежуточных степеней размытия картинки в рамках одной октавы обозначается - s, т.е. s слоев в каждой октаве
@@ -37,7 +37,7 @@
 #define DESCRIPTOR_NBINS           8 // 8 корзин-направлений в каждой гистограмме дескриптора (4х4 гистограммы, каждая по 8 корзин, итого 4x4x8=128 значений в дескрипторе)
 #define DESCRIPTOR_SAMPLES_N       4 // 4x4 замера для каждой гистограммы дескриптора (всего гистограмм 4х4) итого 16х16 замеров
 #define DESCRIPTOR_SAMPLE_WINDOW_R 1.0 // минимальный радиус окна в рамках которого строится гистограмма из 8 корзин-направлений (т.е. для каждого из 16 элементов дескриптора), R=1 => 1x1 окно
-#define MAX_POINTS_FROM_ANGLES 3
+#define MAX_POINTS_FROM_ANGLES 5
 
 #define DESCRIPTOR_WINDOW 16 // 16x16 для дескриптора точки
 #define DESCRIPTOR_ANGLE_STEP 45
@@ -66,7 +66,7 @@ namespace {
 
     // https://stackoverflow.com/a/61395220
     cv::Mat getKernel(int size, float sigma) {
-        cv::Mat kernel = cv::Mat::zeros(size, DESCRIPTOR_WINDOW + 1, CV_32FC1);
+        cv::Mat kernel = cv::Mat::zeros(size, size, CV_32FC1);
         int mid = kernel.rows / 2;
         kernel.at<float>(mid, mid) = 1;
         cv::GaussianBlur(kernel, kernel, {0, 0}, sigma);
@@ -147,6 +147,27 @@ namespace {
 
         contrast = current.at<float>(cds.x, cds.y) +
                 0.5f * -(grad.at<float>(0, 0) * delta.x + grad.at<float>(1, 0) * delta.y + grad.at<float>(2, 0) * delta.z);
+    }
+
+    bool harris(const cv::Point2i &cds, const cv::Mat &current) {
+        static float r = 10.0;
+        static float threshold = (r + 1) * (r + 1) / r;
+        float dxx = current.at<float>(cds.x + 1, cds.y) +
+                    current.at<float>(cds.x - 1, cds.y) -
+                    2.0f * current.at<float>(cds.x, cds.y);
+        float dyy = current.at<float>(cds.x, cds.y + 1) +
+                    current.at<float>(cds.x, cds.y - 1) -
+                    2.0f * current.at<float>(cds.x, cds.y);
+        float dxy = (current.at<float>(cds.x + 1, cds.y + 1) +
+                     current.at<float>(cds.x - 1, cds.y - 1) +
+                     current.at<float>(cds.x + 1, cds.y - 1) +
+                     current.at<float>(cds.x - 1, cds.y + 1)) * 0.25f;
+
+        float traceH = dxx + dyy;
+        float detH = dxx * dyy - dxy * dxy;
+
+        if ((traceH * traceH / detH) < threshold) return true;
+        return false;
     }
 }
 
@@ -230,23 +251,36 @@ void phg::SIFT::buildPyramids(const cv::Mat &imgOrg, std::vector<cv::Mat> &gauss
 }
 
 
-cv::Mat phg::SIFT::buildDescriptor(const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint) {
-    cv::Mat descriptorKernel =  getKernel(DESCRIPTOR_WINDOW + 1, keyPoint.size / 3);
+cv::Mat phg::SIFT::buildDescriptor(const cv::Mat &gaussPic, const cv::Point2i &pix, const cv::KeyPoint &keyPoint
+                        , int layer ) {
+    int current_d_size;
+    int current_w_size;
+    if (layer == 1) {
+        current_d_size = 2;
+    } else if (layer == 2) {
+        current_d_size = 3;
+    } else if (layer == 3) {
+        current_d_size = 4;
+    }
+    current_w_size = DESCRIPTOR_SAMPLES_N * current_d_size;
+
+    cv::Mat descriptorKernel =  getKernel(current_w_size + 1, keyPoint.size / 2);
     cv::Mat descriptor = cv::Mat::zeros(1, KP_DESCRIPTOR_SIZE, CV_32FC1);
     // пусть x  будет на позиции (8, 8)
-    int delta = DESCRIPTOR_WINDOW / 2;
+    int delta = descriptorKernel.rows / 2;
     int shiftX = std::max(pix.x - delta, 0), shiftY = std::max(pix.y - delta, 0);
 
     for (int descX = 0; descX < DESCRIPTOR_SAMPLES_N; ++descX) {
         for (int descY = 0; descY < DESCRIPTOR_SAMPLES_N; ++descY) {
             auto bin = descriptor.begin<float>() + DESCRIPTOR_NBINS * (descX * DESCRIPTOR_SAMPLES_N + descY);
-            for (int x = 0; x < DESCRIPTOR_SIZE; ++x) {
-                for (int y = 0; y < DESCRIPTOR_SIZE; ++y) {
-                    int xg = DESCRIPTOR_SAMPLES_N * descX + x;
-                    int yg = DESCRIPTOR_SAMPLES_N * descY + y;
+            for (int x = 0; x < current_d_size; ++x) {
+                for (int y = 0; y < current_d_size; ++y) {
+                    int xg = current_d_size * descX + x;
+                    int yg = current_d_size * descY + y;
 
                     cv::Point2i ptTransformed =
                             rotatePoint({(float)(xg + shiftX), (float)(yg + shiftY)}, pix, keyPoint.angle);
+
                     int xs = ptTransformed.x;
                     int ys = ptTransformed.y;
                     if (xs <= 0 || xs >= gaussPic.rows - 1 | ys <= 0 || ys >= gaussPic.cols - 1) continue;
@@ -271,11 +305,18 @@ cv::Mat phg::SIFT::buildDescriptor(const cv::Mat &gaussPic, const cv::Point2i &p
     return descriptor;
 }
 
-void phg::SIFT::getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const cv::Point2i &pix,
+void phg::SIFT::getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const cv::Point2i &pix, int layer,
                                                  const cv::Point2f &point, float sigma, float contrast,
                                                  std::vector<cv::KeyPoint> &points, std::vector<cv::Mat> &descriptors) {
-
-    cv::Mat kernel = getKernel(ORIENTATION_WINDOW + 1, SIGMA_SCALE * sigma);
+    int current_w_r;
+    if (layer == 1) {
+        current_w_r = 8;
+    } else if (layer == 2) {
+        current_w_r = 12;
+    } else if (layer == 3) {
+        current_w_r = 16;
+    }
+    cv::Mat kernel = getKernel(2*current_w_r + 1, current_w_r * sigma / 2);
 
     int delta = kernel.rows / 2;
     int shiftX = std::max(pix.x - delta, 0), shiftY = std::max(pix.y - delta, 0);
@@ -320,10 +361,10 @@ void phg::SIFT::getPointOrientationAndDescriptor(const cv::Mat &gaussPic, const 
             if (angle >= 360) angle -= 360;
             counter ++;
 
-            cv::KeyPoint kp{point, 6 * sigma, angle, contrast};
+            cv::KeyPoint kp{point, 10 * sigma, angle, contrast};
             points.push_back(kp);
 
-            descriptors.push_back(buildDescriptor(gaussPic, pix, kp));
+            descriptors.push_back(buildDescriptor(gaussPic, pix, kp,  layer));
         }
         if (counter >= MAX_POINTS_FROM_ANGLES) break;
     }
@@ -366,6 +407,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                     cv::Point2i pixel(x, y);
                     cv::Point3f delta{};
                     float contrast;
+
                     approximate(delta, contrast, pixel, below, current, above);
                     // просто отбросим нестабильную точку
                     if (std::fabs(delta.x) > 0.5f || std::fabs(delta.y) > 0.5f || std::fabs(delta.z) > 0.5f) continue;
@@ -374,11 +416,12 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                     // потому что потенциально у нас теперь больше ключевых точеки мы можем ужесточить отбор?
                     if (abs(contrast) < contrast_threshold / OCTAVE_NLAYERS) continue;
 
-                    // TODO добавить проверку с изгибом, что рассматриваем не линию
+                    // добавить проверку с изгибом, что рассматриваем не линию
+                    if (!harris(pixel, current)) continue;
 
                     double step = pow(2.0, 1.0 / OCTAVE_NLAYERS);
-                    float prevSigma = INITIAL_IMG_SIGMA * pow(step, layer);
                     float currentSigma = INITIAL_IMG_SIGMA * pow(step, layer + 1);
+                    float prevSigma = INITIAL_IMG_SIGMA * pow(step, layer);
                     float nextSigma = INITIAL_IMG_SIGMA * pow(step, layer + 2);
                     currentSigma = delta.z < 0 ?  -delta.z * prevSigma + (1 + delta.z) * currentSigma :
                                    (1 - delta.z) * currentSigma + delta.z * nextSigma;
@@ -387,7 +430,7 @@ void phg::SIFT::findLocalExtremasAndDescribe(const std::vector<cv::Mat> &gaussia
                     cv::Mat gP = gaussianPyramid[OCTAVE_GAUSSIAN_IMAGES * octave + layer + 1];
                     cv::Point2f point{(0.5f + pixel.y + delta.y) * octaveScale, (0.5f + pixel.x + delta.x) * octaveScale};
 
-                    getPointOrientationAndDescriptor(gP, pixel, point, currentSigma, abs(contrast), keyPoints,
+                    getPointOrientationAndDescriptor(gP, pixel, layer, point, currentSigma, abs(contrast), keyPoints,
                                                      descriptors);
                 }
             }
