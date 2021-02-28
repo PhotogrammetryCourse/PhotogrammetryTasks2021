@@ -15,6 +15,11 @@ else()
     message(FATAL_ERROR "OpenMP not found! You need OpenMP for speedup on multicore CPUs!")
 endif()
 
+if (DEFINED ENV{CMAKE_LOCAL_CXX_FLAGS})
+    message("Found local flags -- setting $ENV{CMAKE_LOCAL_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} $ENV{CMAKE_LOCAL_CXX_FLAGS}")
+endif()
+
 find_package(OpenCV 4.5.1 REQUIRED)
 #      Linux:
 # скачайте Source code (opencv-4.5.1.zip) отсюда - https://github.com/opencv/opencv/releases распакуйте и скомпилируйте:

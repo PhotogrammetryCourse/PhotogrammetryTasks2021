@@ -60,14 +60,14 @@ __kernel void bruteforce_matcher(__global const float* train,
             }
 
             if (dim_id == 0) { // && query_local_i + query_id0 < n_query_desc) {
-		// master поток смотрит на полученное расстояние и проверяет не лучше ли оно чем то что было до сих пор
+                // master поток смотрит на полученное расстояние и проверяет не лучше ли оно чем то что было до сих пор
                 float dist2 = dist2_for_reduction[query_local_i][0]; // взяли найденную сумму квадратов (это квадрат расстояния до текущего кандидата train_idx)
 
                 #define BEST_INDEX        0
                 #define SECOND_BEST_INDEX 1
-		
-		if (false && query_id0 == 0)
-			printf("%d %d -> %f", query_local_i + query_id0, train_idx, sqrt(dist2));
+
+                if (false && query_id0 == 0)
+                    printf("%d %d -> %f", query_local_i + query_id0, train_idx, sqrt(dist2));
 
                 // пытаемся улучшить самое лучшее сопоставление для локального дескриптора
                 if (dist2 <= res_distance2_local[query_local_i * 2 + BEST_INDEX]) {
@@ -82,8 +82,8 @@ __kernel void bruteforce_matcher(__global const float* train,
                     res_train_idx_local[query_local_i * 2 + SECOND_BEST_INDEX] = train_idx;
                 }
             }
-	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
     // итак, мы нашли два лучших сопоставления для наших KEYPOINTS_PER_WG дескрипторов, надо сохрнить эти результаты в глобальную память
     if (dim_id < KEYPOINTS_PER_WG * 2) { // полагаемся на то что нам надо прогрузить KEYPOINTS_PER_WG*2==4*2<dim_id<=NDIM==128
