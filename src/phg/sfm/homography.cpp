@@ -3,7 +3,15 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <iostream>
 
+
+#define ORSA 1
+
 namespace {
+
+    // https://math.stackexchange.com/a/64735
+    double log2_binomial_approx(int n, int m) {
+        return (n + 0.5) * std::log2(n) - (m + 0.5) * log2(m) - (n - m + 0.5) * log2(n - m) - 0.5 * log2(M_PI);
+    }
 
     // источник: https://e-maxx.ru/algo/linear_systems_gauss
     // очень важно при выполнении метода гаусса использовать выбор опорного элемента: об этом можно почитать в источнике кода
@@ -84,8 +92,8 @@ namespace {
             double w1 = ws1[i];
 
             // 8 elements of matrix + free term as needed by gauss routine
-//            A.push_back({TODO});
-//            A.push_back({TODO});
+            A.push_back({-x0, -y0, -w0, 0, 0, 0, x1 * x0, x1 * y0, -x1});
+            A.push_back({0, 0, 0, -x0, -y0, -w0, y1 * x0, y1 * y0, -y1});
         }
 
         int res = gauss(A, H);
@@ -98,16 +106,16 @@ namespace {
         }
         else
         if (res == std::numeric_limits<int>::max()) {
-            std::cerr << "gauss: infinitely many solutions found" << std::endl;
-            std::cerr << "gauss: xs0: ";
-            for (int i = 0; i < 4; ++i) {
-                std::cerr << xs0[i] << ", ";
-            }
-            std::cerr << "\ngauss: ys0: ";
-            for (int i = 0; i < 4; ++i) {
-                std::cerr << ys0[i] << ", ";
-            }
-            std::cerr << std::endl;
+//            std::cerr << "gauss: infinitely many solutions found" << std::endl;
+//            std::cerr << "gauss: xs0: ";
+//            for (int i = 0; i < 4; ++i) {
+//                std::cerr << xs0[i] << ", ";
+//            }
+//            std::cerr << "\ngauss: ys0: ";
+//            for (int i = 0; i < 4; ++i) {
+//                std::cerr << ys0[i] << ", ";
+//            }
+//            std::cerr << std::endl;
         }
         else
         {
@@ -156,76 +164,119 @@ namespace {
         }
     }
 
-    cv::Mat estimateHomographyRANSAC(const std::vector<cv::Point2f> &points_lhs, const std::vector<cv::Point2f> &points_rhs)
+    cv::Mat estimateHomographyRANSAC(const std::vector<cv::Point2f> &points_lhs, const std::vector<cv::Point2f> &points_rhs,
+                                     const cv::MatSize *mSize)
     {
         if (points_lhs.size() != points_rhs.size()) {
             throw std::runtime_error("findHomography: points_lhs.size() != points_rhs.size()");
         }
 
-        // TODO Дополнительный балл, если вместо обычной версии будет использована модификация a-contrario RANSAC
+        //  Дополнительный балл, если вместо обычной версии будет использована модификация a-contrario RANSAC
         // * [1] Automatic Homographic Registration of a Pair of Images, with A Contrario Elimination of Outliers. (Lionel Moisan, Pierre Moulon, Pascal Monasse)
         // * [2] Adaptive Structure from Motion with a contrario model estimation. (Pierre Moulon, Pascal Monasse, Renaud Marlet)
         // * (простое описание для понимания)
         // * [3] http://ikrisoft.blogspot.com/2015/01/ransac-with-contrario-approach.html
 
-//        const int n_matches = points_lhs.size();
+        const int n_matches = points_lhs.size();
 //
 //        // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
-//        const int n_trials = TODO;
+        const int n_trials = (int) (log2(1 - 0.96) / log2(1 - pow(0.6, 4)));
+        std::cout << "n_trials: " << n_trials << std::endl;
 //
-//        const int n_samples = TODO;
-//        uint64_t seed = 1;
-//        const double reprojection_error_threshold_px = 2;
-//
-//        int best_support = 0;
-//        cv::Mat best_H;
-//
-//        std::vector<int> sample;
-//        for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
-//            randomSample(sample, n_matches, n_samples, &seed);
-//
-//            cv::Mat H = estimateHomography4Points(points_lhs[sample[0]], points_lhs[sample[1]], points_lhs[sample[2]], points_lhs[sample[3]],
-//                                                  points_rhs[sample[0]], points_rhs[sample[1]], points_rhs[sample[2]], points_rhs[sample[3]]);
-//
-//            int support = 0;
-//            for (int i_point = 0; i_point < n_matches; ++i_point) {
-//                try {
-//                    cv::Point2d proj = phg::transformPoint(points_lhs[i_point], H);
-//                    if (cv::norm(proj - cv::Point2d(points_rhs[i_point])) < reprojection_error_threshold_px) {
-//                        ++support;
-//                    }
-//                } catch (const std::exception &e)
-//                {
-//                    std::cerr << e.what() << std::endl;
-//                }
-//            }
-//
-//            if (support > best_support) {
-//                best_support = support;
-//                best_H = H;
-//
-//                std::cout << "estimateHomographyRANSAC : support: " << best_support << "/" << n_matches << std::endl;
-//
-//                if (best_support == n_matches) {
-//                    break;
-//                }
-//            }
-//        }
-//
-//        std::cout << "estimateHomographyRANSAC : best support: " << best_support << "/" << n_matches << std::endl;
-//
-//        if (best_support == 0) {
-//            throw std::runtime_error("estimateHomographyRANSAC : failed to estimate homography");
-//        }
-//
-//        return best_H;
+        const int n_samples = 4;
+        uint64_t seed = 1;
+        const double reprojection_error_threshold_px = 2;
+
+        cv::Mat best_H;
+        std::vector<int> sample;
+
+#if ORSA
+        if (mSize == nullptr) throw std::runtime_error("Second picture size is not provided");
+
+        //http://www.ipol.im/pub/art/2012/mmm-oh/
+        double alpha = M_PI / ((*mSize[0]) * (*mSize[1]));
+        double smallest_log2_NFA = std::numeric_limits<double>::max();
+        std::vector<double> errors(n_matches);
+        std::vector<double> precalcs(n_matches, 0);
+
+        //  log2(NFA(k)) = log2((n_matches - n_samples) * bi(n_matches, k) * bi(k, n_samples) * ((err^2 * alpha)^(k-4))) =
+        //  log2(n_matches - n_samples) + log2(bi(n_matches, k)) +
+        // + log2(bi(k, n_samples)) + (k-n_samples)*log2(alpha) +  потом ещё 2*(k-n_samples)*log(err)
+        for (int k = n_samples; k < n_matches; ++k) {
+            precalcs[k] = log2(n_matches-n_samples) + log2_binomial_approx(n_matches, k) +
+                    + log2_binomial_approx(k, n_samples) + (k-n_samples) * log2(alpha);
+        }
+
+        for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
+            randomSample(sample, n_matches, n_samples, &seed);
+
+            cv::Mat H = estimateHomography4Points(points_lhs[sample[0]], points_lhs[sample[1]], points_lhs[sample[2]], points_lhs[sample[3]],
+                                                  points_rhs[sample[0]], points_rhs[sample[1]], points_rhs[sample[2]], points_rhs[sample[3]]);
+
+            for (int i_point = 0; i_point < n_matches; ++i_point) {
+                cv::Point2d proj = phg::transformPoint(points_lhs[i_point], H);
+                errors[i_point] = cv::norm(proj - cv::Point2d(points_rhs[i_point]));
+            }
+
+            std::sort(errors.begin(), errors.end());
+
+            for (int k = n_samples + 1; k <= n_matches; ++k) {
+                double est_log2_NFA = precalcs[k-1] + 2 * (k - n_samples) * log2(errors[k-1]);
+                if (est_log2_NFA < smallest_log2_NFA) {
+                    smallest_log2_NFA = est_log2_NFA;
+                    best_H = H;
+                }
+            }
+        }
+
+#else
+        // sourse
+        int best_support = 0;
+        for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
+            randomSample(sample, n_matches, n_samples, &seed);
+
+            cv::Mat H = estimateHomography4Points(points_lhs[sample[0]], points_lhs[sample[1]], points_lhs[sample[2]], points_lhs[sample[3]],
+                                                  points_rhs[sample[0]], points_rhs[sample[1]], points_rhs[sample[2]], points_rhs[sample[3]]);
+            int support = 0;
+            for (int i_point = 0; i_point < n_matches; ++i_point) {
+                try {
+                    cv::Point2d proj = phg::transformPoint(points_lhs[i_point], H);
+                    if (cv::norm(proj - cv::Point2d(points_rhs[i_point])) < reprojection_error_threshold_px) {
+                        ++support;
+                    }
+                } catch (const std::exception &e)
+                {
+                    std::cerr << e.what() << std::endl;
+                }
+            }
+
+            if (support > best_support) {
+                best_support = support;
+                best_H = H;
+
+                std::cout << "estimateHomographyRANSAC : support: " << best_support << "/" << n_matches << std::endl;
+
+                if (best_support == n_matches) {
+                    break;
+                }
+            }
+        }
+
+        std::cout << "estimateHomographyRANSAC : best support: " << best_support << "/" << n_matches << std::endl;
+
+        if (best_support == 0) {
+            throw std::runtime_error("estimateHomographyRANSAC : failed to estimate homography");
+        }
+#endif
+        return best_H;
     }
 
 }
 
-cv::Mat phg::findHomography(const std::vector<cv::Point2f> &points_lhs, const std::vector<cv::Point2f> &points_rhs)
+cv::Mat phg::findHomography(const std::vector<cv::Point2f> &points_lhs, const std::vector<cv::Point2f> &points_rhs,
+                            const cv::MatSize *mSize)
 {
-    return estimateHomographyRANSAC(points_lhs, points_rhs);
+    return estimateHomographyRANSAC(points_lhs, points_rhs, mSize);
 }
 
 // чтобы заработало, нужно пересобрать библиотеку с дополнительным модулем calib3d (см. инструкцию в корневом CMakeLists.txt)
@@ -238,7 +289,9 @@ cv::Mat phg::findHomographyCV(const std::vector<cv::Point2f> &points_lhs, const 
 // таким преобразованием внутри занимается функции cv::perspectiveTransform и cv::warpPerspective
 cv::Point2d phg::transformPoint(const cv::Point2d &pt, const cv::Mat &T)
 {
-    throw std::runtime_error("not implemented yet");
+    cv::Vec3d pct1_pt {pt.x, pt.y, 1};
+    cv::Mat res = T * pct1_pt;
+    return {res.at<double>(0, 0) / res.at<double>(2, 0), res.at<double>(1, 0) / res.at<double>(2, 0)};
 }
 
 cv::Point2d phg::transformPointCV(const cv::Point2d &pt, const cv::Mat &T) {

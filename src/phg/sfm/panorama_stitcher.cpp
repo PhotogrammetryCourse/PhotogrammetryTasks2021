@@ -3,6 +3,7 @@
 
 #include <libutils/bbox2.h>
 #include <iostream>
+#include <stack>
 
 /*
  * imgs - список картинок
@@ -21,9 +22,37 @@ cv::Mat phg::stitchPanorama(const std::vector<cv::Mat> &imgs,
     // вектор гомографий, для каждой картинки описывает преобразование до корня
     std::vector<cv::Mat> Hs(n_images);
     {
-        // здесь надо посчитать вектор Hs
-        // при этом можно обойтись n_images - 1 вызовами функтора homography_builder
-        throw std::runtime_error("not implemented yet");
+        std::vector<int> init(n_images, 0);
+        for (int i = 0 ; i < n_images; ++i) {
+            if (init[i] == 1) continue;
+            if (parent[i] == -1) {
+                Hs[i] = cv::Mat::eye(3, 3, CV_64F);
+                init[i] = 1;
+                continue;
+            }
+            // имитируем рекурсию стеком
+            std::stack<int> im_indexes;
+            int current = i;
+            im_indexes.push(current);
+            while (init[current] != 1 && parent[current] != -1) {
+                current = parent[current];
+                im_indexes.push(current);
+            }
+            im_indexes.pop();
+            while (!im_indexes.empty()) {
+                int child = im_indexes.top();
+                im_indexes.pop();
+
+                if (parent[current] == -1) {
+                    Hs[child] = homography_builder(imgs[child], imgs[current]);
+                } else {
+                    Hs[child] = Hs[current] * homography_builder(imgs[child], imgs[current]);
+                }
+
+                init[child] = 1;
+                current = child;
+            }
+        }
     }
 
     bbox2<double, cv::Point2d> bbox;
