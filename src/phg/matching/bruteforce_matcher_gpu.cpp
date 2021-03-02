@@ -11,7 +11,7 @@
 // Этот файл будет сгенерирован автоматически в момент сборки - см. convertIntoHeader в CMakeLists.txt
 #include "cl/bruteforce_matcher_cl.h"
 
-#define BF_MATCHER_GPU_VERBOSE 0
+#define BF_MATCHER_GPU_VERBOSE 1
 
 void phg::BruteforceMatcherGPU::train(const cv::Mat &train_desc)
 {

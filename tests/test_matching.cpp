@@ -20,8 +20,12 @@
 
 // TODO enable both toggles for testing custom detector & matcher
 #define ENABLE_MY_DESCRIPTOR 0
-#define ENABLE_MY_MATCHING 0
-#define ENABLE_GPU_BRUTEFORCE_MATCHER 0
+#define ENABLE_MY_MATCHING 1
+
+// weird OpenCL driver issues D:
+#ifndef DENZED_LOCAL
+#   define ENABLE_GPU_BRUTEFORCE_MATCHER 1
+#endif
 
 #if ENABLE_MY_MATCHING
 const double max_keypoints_rmse_px = 1.0;
@@ -310,6 +314,11 @@ namespace {
         for (int i = 0; i < (int) knn_matches_bruteforce_gpu.size(); ++i) {
             ASSERT_EQ(knn_matches_bruteforce_gpu[i].size(), knn_matches_bruteforce[i].size());
             for (int j = 0; j < (int) knn_matches_bruteforce_gpu[i].size(); ++j) {
+		if (false && !matcheq(knn_matches_bruteforce_gpu[i][j], knn_matches_bruteforce[i][j])) {
+			std::cout << "[" << i << ", " << j << "] not equal : (" 
+				  << knn_matches_bruteforce_gpu[i][j].queryIdx << ", " << knn_matches_bruteforce_gpu[i][j].trainIdx << ", " << knn_matches_bruteforce_gpu[i][j].distance << ") vs (" 
+				  << knn_matches_bruteforce[i][j].queryIdx << ", " << knn_matches_bruteforce[i][j].trainIdx << ", " << knn_matches_bruteforce[i][j].distance  << ")" << std::endl;
+		}
                 ASSERT_TRUE(matcheq(knn_matches_bruteforce_gpu[i][j], knn_matches_bruteforce[i][j]));
             }
         }
@@ -794,6 +803,7 @@ TEST (STITCHING, Orthophoto) {
     cv::Mat img4 = cv::imread("data/src/test_matching/ortho/IMG_160729_071356_0003_RGB.JPG");
     cv::Mat img5 = cv::imread("data/src/test_matching/ortho/IMG_160729_071358_0004_RGB.JPG");
 
+    std::cout << "testing orthophoto from with join order [1, 2, -1, 2, 3]" << std::endl;
     {
         std::function<cv::Mat(const cv::Mat&, const cv::Mat&)> homography_builder = [](const cv::Mat &lhs, const cv::Mat &rhs){ return getHomography(lhs, rhs); };
         cv::Mat ortho2 = phg::stitchPanorama({img1, img2, img3, img4, img5}, {1, 2, -1, 2, 3}, homography_builder);
@@ -806,6 +816,7 @@ TEST (STITCHING, Orthophoto) {
         return getHomography(lhs, rhs);
     };
 
+    std::cout << "testing orthophoto from with join order [-1, 0, 1, 2, 3]" << std::endl;
     cv::Mat ortho = phg::stitchPanorama({img1, img2, img3, img4, img5}, {-1, 0, 1, 2, 3}, homography_builder);
     cv::imwrite("data/debug/test_matching/" + getTestSuiteName() + "_" + getTestName() + "_" + "ortho_root0.jpg", ortho);
 

@@ -3,6 +3,14 @@
 #include <opencv2/flann/miniflann.hpp>
 #include <opencv2/flann/kdtree_index.h>
 
+// сколько рандомизированных kd-деревьев строить
+#define KD_TREE_COUNT             6   
+
+// сколько листьев kd-дерева обходится при поиске ближайшего соседа
+#define KD_TREE_SEARCH_LEAF_COUNT 32
+
+// граница ratio test, по которой делается отсеивание
+#define FILTER_RATIO_TEST_THRESHOLD 0.6
 
 namespace phg {
 
