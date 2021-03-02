@@ -104,61 +104,61 @@ namespace {
             getNormalizeTransform(m0_t);
             getNormalizeTransform(m1_t);
         }
-        throw std::runtime_error("not implemented yet");
-//        // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
-//        // будет отличаться от случая с гомографией
-//        const int n_trials = TODO;
-//
-//        const int n_samples = TODO;
-//        uint64_t seed = 1;
-//
-//        int best_support = 0;
-//        cv::Matx33d best_F;
-//
-//        std::vector<int> sample;
-//        for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
-//            phg::randomSample(sample, n_matches, n_samples, &seed);
-//
-//            cv::Vec2d ms0[n_samples];
-//            cv::Vec2d ms1[n_samples];
-//            for (int i = 0; i < n_samples; ++i) {
-//                ms0[i] = m0_t[sample[i]];
-//                ms1[i] = m1_t[sample[i]];
-//            }
-//
-//            cv::Matx33d F = estimateFMatrixDLT(ms0, ms1, n_samples);
-//
-//            // denormalize
-//            F = TODO
-//
-//            int support = 0;
-//            for (int i = 0; i < n_matches; ++i) {
-//                if (phg::epipolarTest(m0[i], m1[i], todo, threshold_px) && phg::epipolarTest(m1[i], m0[i], todo, threshold_px))
-//                {
-//                    ++support;
-//                }
-//            }
-//
-//            if (support > best_support) {
-//                best_support = support;
-//                best_F = F;
-//
-//                std::cout << "estimateFMatrixRANSAC : support: " << best_support << "/" << n_matches << std::endl;
-//                infoF(F);
-//
-//                if (best_support == n_matches) {
-//                    break;
-//                }
-//            }
-//        }
-//
-//        std::cout << "estimateFMatrixRANSAC : best support: " << best_support << "/" << n_matches << std::endl;
-//
-//        if (best_support == 0) {
-//            throw std::runtime_error("estimateFMatrixRANSAC : failed to estimate fundamental matrix");
-//        }
-//
-//        return best_F;
+
+        // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
+        // будет отличаться от случая с гомографией
+        const int n_trials = 100; //TODO, как расчитывать количество сэмплов
+
+        const int n_samples = 8;
+        uint64_t seed = 1;
+
+        int best_support = 0;
+        cv::Matx33d best_F;
+
+        std::vector<int> sample;
+        for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
+            phg::randomSample(sample, n_matches, n_samples, &seed);
+
+            cv::Vec2d ms0[n_samples];
+            cv::Vec2d ms1[n_samples];
+            for (int i = 0; i < n_samples; ++i) {
+                ms0[i] = m0_t[sample[i]];
+                ms1[i] = m1_t[sample[i]];
+            }
+
+            cv::Matx33d F = estimateFMatrixDLT(ms0, ms1, n_samples);
+
+            // denormalize
+            F = TN1.t() * F * TN0;
+
+            int support = 0;
+            for (int i = 0; i < n_matches; ++i) {
+                if (phg::epipolarTest(m0[i], m1[i], F, threshold_px) && phg::epipolarTest(m1[i], m0[i], F.t(), threshold_px))
+                {
+                    ++support;
+                }
+            }
+
+            if (support > best_support) {
+                best_support = support;
+                best_F = F;
+
+                std::cout << "estimateFMatrixRANSAC : support: " << best_support << "/" << n_matches << std::endl;
+                infoF(F);
+
+                if (best_support == n_matches) {
+                    break;
+                }
+            }
+        }
+
+        std::cout << "estimateFMatrixRANSAC : best support: " << best_support << "/" << n_matches << std::endl;
+
+        if (best_support == 0) {
+            throw std::runtime_error("estimateFMatrixRANSAC : failed to estimate fundamental matrix");
+        }
+
+        return best_F;
     }
 
 }
