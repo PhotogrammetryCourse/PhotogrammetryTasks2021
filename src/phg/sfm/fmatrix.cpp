@@ -48,6 +48,8 @@ cv::Matx33d estimateFMatrixDLT(const cv::Vec2d *m0, const cv::Vec2d *m1, int cou
     Eigen::JacobiSVD<Eigen::MatrixXd> svda(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
     Eigen::VectorXd null_space = svda.matrixV().col(svda.matrixV().cols()-1);
 
+
+
     //    std::cout << " null_space " << A * null_space << std::endl;
 
     Eigen::MatrixXd F(3, 3);
@@ -58,17 +60,25 @@ cv::Matx33d estimateFMatrixDLT(const cv::Vec2d *m0, const cv::Vec2d *m1, int cou
     ////             Поправить F так, чтобы соблюдалось свойство фундаментальной матрицы (последнее сингулярное значение = 0)
     Eigen::JacobiSVD<Eigen::MatrixXd> svdf(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
 
-     // 280 Constraint enforcement
-    Eigen::Matrix3d D = Eigen::Matrix3d::Identity();
-    D(0,0) = svdf.singularValues()(0);
-    D(1,1) = svdf.singularValues()(1);
+    // 280 Constraint enforcement
+    Eigen::Matrix3d D = svdf.singularValues().asDiagonal();
     D(2,2) =0.;
-    F = svdf.matrixU() *(D * svdf.matrixV().transpose());
+    F = svdf.matrixU() *D * svdf.matrixV().transpose();
+
+    //    Eigen::Matrix3d DD = Eigen::Matrix3d::Identity();
+    //    DD(0,0) = svdf.singularValues()(0);
+    //    DD(1,1) = svdf.singularValues()(1);
+    //    DD(2,2) = svdf.singularValues()(2);
+
+    //    std::cout << "F = " << F << std::endl<< "check " << svdf.matrixU() * svdf.singularValues().asDiagonal() * svdf.matrixV().transpose() << std::endl;
+    //    std::cout << "check2 " << svdf.matrixU() * (DD * svdf.matrixV().transpose()) << std::endl;
+
     //
     //          TODO
     //
     cv::Matx33d Fcv;
     copy(F, Fcv);
+    //    infoF(Fcv);
 
     return Fcv;
 }
@@ -102,7 +112,7 @@ cv::Matx33d getNormalizeTransform(const std::vector<cv::Vec2d> &m)
 
     // Root Mean Square - ?
 
-    std::cout<< nt33 << std::endl;
+
 
     //        throw std::runtime_error("not implemented yet");
     return nt33;
@@ -169,8 +179,7 @@ cv::Matx33d estimateFMatrixRANSAC(const std::vector<cv::Vec2d> &m0, const std::v
         // denormalize
         //            F = TODO
 
-        F = F * TN0;
-        F = TN1.t() * F;
+        F = TN1.t() * F * TN0;
 
         int support = 0;
         for (int i = 0; i < n_matches; ++i) {
