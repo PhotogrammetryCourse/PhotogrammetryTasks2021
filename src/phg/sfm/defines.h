@@ -59,6 +59,24 @@ inline void copy(const matrix3d &Fcv, EIGEN_TYPE &F)
 }
 
 template <typename EIGEN_TYPE>
+inline void copy(const matrix4d &Fcv, EIGEN_TYPE &F)
+{
+    F = EIGEN_TYPE(4, 4);
+
+    F(0, 0) = Fcv(0, 0); F(0, 1) = Fcv(0, 1); F(0, 2) = Fcv(0, 2);F(0, 3) = Fcv(0, 3);
+    F(1, 0) = Fcv(1, 0); F(1, 1) = Fcv(1, 1); F(1, 2) = Fcv(1, 2);F(1, 3) = Fcv(1, 3);
+    F(2, 0) = Fcv(2, 0); F(2, 1) = Fcv(2, 1); F(2, 2) = Fcv(2, 2);F(2, 3) = Fcv(2, 3);
+    F(3, 0) = Fcv(3, 0); F(3, 1) = Fcv(3, 1); F(3, 2) = Fcv(3, 2);F(3, 3) = Fcv(3, 3);
+}
+
+template <typename EIGEN_TYPE>
+inline void copy(const  EIGEN_TYPE &Fcv, vector4d &F)
+{
+    F(0) = Fcv(0); F(1) = Fcv(1);
+    F(2) = Fcv(2); F(3) = Fcv(3);
+}
+
+template <typename EIGEN_TYPE>
 inline void copy(const EIGEN_TYPE &F, matrix3d &Fcv)
 {
     Fcv(0, 0) = F(0, 0); Fcv(0, 1) = F(0, 1); Fcv(0, 2) = F(0, 2);

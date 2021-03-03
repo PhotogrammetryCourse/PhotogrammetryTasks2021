@@ -75,9 +75,9 @@ matrix34d composeP(const Eigen::MatrixXd &R, const Eigen::VectorXd &t)
 
 double getDepth(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
 {
-    throw std::runtime_error("not implemented yet");
-    vector3d p0 = vector3d(m0(0), m0(1), 1.);
-    vector3d p1 = vector3d(m0(1), m1(1), 1.);
+//    throw std::runtime_error("not implemented yet");
+    vector3d p0 = calib0.unproject(m0);
+    vector3d p1 = calib1.unproject(m1);
 
     vector3d ps[2] = {p0, p1};
     matrix34d Ps[2] = {P0, P1};
@@ -87,7 +87,7 @@ double getDepth(const vector2d &m0, const vector2d &m1, const phg::Calibration &
         X /= X[3];
     }
 
-    return TODO;
+    return X[2];
 }
 }
 
@@ -162,19 +162,20 @@ void phg::decomposeEMatrix(cv::Matx34d &P0, cv::Matx34d &P1, const cv::Matx33d &
 
 
             //https://stackoverflow.com/questions/22807039/decomposition-of-essential-matrix-validation-of-the-four-possible-solutions-for
-            cv::Matx33d R; cv::Vec3d O;
-            decomposeUndistortedPMatrix(R,O,P1s[i]);
+//            cv::Matx33d R; cv::Vec3d O;
+//            decomposeUndistortedPMatrix(R,O,P1s[i]);
 
-            matrix3d M = skew(O);
+//            matrix3d M = skew(O);
 
-            cv::Vec3d m03d = {m0.at(j)(0), m0.at(j)(1), 1.};
-            cv::Vec3d m13d = {m1.at(j)(0), m1.at(j)(1), 1.};
+//            cv::Vec3d m03d = {m0.at(j)(0), m0.at(j)(1), 1.};
+//            cv::Vec3d m13d = {m1.at(j)(0), m1.at(j)(1), 1.};
 
-            cv::Vec3d p0 = M * calib0.K().inv() * m03d;
-            cv::Vec3d p1 = M * R.t() * calib1.K().inv()*m13d;
+//            cv::Vec3d p0 = M * calib0.K().inv() * m03d;
+//            cv::Vec3d p1 = M * R.t() * calib1.K().inv()*m13d;
 
-            std::cout << p0 << " " << p1 << std::endl;
-            if (p0(2) * p1(2) > 0)
+//            std::cout << p0 << " " << p1 << std::endl;
+//            if (p0(2) * p1(2) > 0)
+            if(::getDepth(m0[j],m1[j],calib0,calib1,P0, P1s[i]) > 0)
             {
                 ++count;
             }
