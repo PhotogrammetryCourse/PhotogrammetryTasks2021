@@ -59,9 +59,10 @@ namespace {
         return result;
     }
 
-    double getDepth(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
+    bool depthTest(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
     {
         throw std::runtime_error("not implemented yet");
+//        // скомпенсировать калибровки камер
 //        vector3d p0 = TODO;
 //        vector3d p1 = TODO;
 //
@@ -73,7 +74,8 @@ namespace {
 //            X /= X[3];
 //        }
 //
-//        return TODO;
+//        // точка должна иметь положительную глубину для обеих камер
+//        return TODO && TODO;
     }
 }
 
@@ -140,7 +142,7 @@ void phg::decomposeEMatrix(cv::Matx34d &P0, cv::Matx34d &P1, const cv::Matx33d &
 //    for (int i = 0; i < 4; ++i) {
 //        int count = 0;
 //        for (int j = 0; j < (int) m0.size(); ++j) {
-//            if (TODO) {
+//            if (depthTest(m0[j], m1[j], calib0, calib1, P0, P1s[i])) {
 //                ++count;
 //            }
 //        }
