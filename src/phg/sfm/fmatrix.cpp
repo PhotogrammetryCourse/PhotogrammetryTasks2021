@@ -70,7 +70,44 @@ namespace {
     // (см. Hartley & Zisserman p.107 Why is normalization essential?)
     cv::Matx33d getNormalizeTransform(const std::vector<cv::Vec2d> &m)
     {
-        throw std::runtime_error("not implemented yet getNormalizeTransform");
+        double mean_x = 0, mean_y = 0;
+        for (int i = 0; i < m.size(); ++i) {
+            mean_x += m[i][0];
+            mean_y += m[i][1];
+        }
+        mean_x /= m.size();
+        mean_y /= m.size();
+
+        std::cout << m.size() << "\n";
+        std::cout << mean_x << " " << mean_y << "\n";
+
+        double mean2_x = 0, mean2_y = 0;
+        for (int i = 0; i < m.size(); ++i) {
+            mean2_x += (m[i][0] - mean_x);
+            mean2_y += (m[i][1] - mean_y);
+        }
+        mean2_x /= m.size();
+        mean2_y /= m.size();
+        std::cout << mean2_x << " " << mean2_y << "\n";
+
+
+        double data[9] = {1., 0, -mean_x, 0, 1., -mean_y, 0, 0, 1.};
+        cv::Matx33d shift(data);
+        std::cout << "shift matrix " <<shift << "\n";
+        std::cout << m[0] << " " << shift * cv::Vec3d(m[0][0], m[0][1], 1.0) << "\n";
+
+        double cx = 0, cy = 0;
+        for (int i = 0; i < m.size(); ++i) {
+            cx += (m[i][0] - mean_x) * (m[i][0] - mean_x);
+            cy += (m[i][1] - mean_y) * (m[i][1] - mean_y);
+        }
+
+        cx = sqrt(cx / 2);
+        cy = sqrt(cy / 2);
+        double data2[9] = {cx, 0, 0, 0, cy, 0, 0, 0, 1};
+        cv::Matx33d scale(data2);
+
+        return shift;
     }
 
     cv::Vec2d transformPoint(const cv::Vec2d &pt, const cv::Matx33d &T)
@@ -104,9 +141,10 @@ namespace {
 
         {
 //             Проверьте лог: при повторной нормализации должно найтись почти единичное преобразование
-            getNormalizeTransform(m0_t);
-            getNormalizeTransform(m1_t);
+            std::cout << "check find norm matrix: " << getNormalizeTransform(m0_t) << "\n";
+            std::cout << "check find norm matrix: " << getNormalizeTransform(m1_t) << "\n";
         }
+
 
         // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
         // будет отличаться от случая с гомографией
