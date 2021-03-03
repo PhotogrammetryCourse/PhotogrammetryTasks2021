@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
 
@@ -46,6 +47,12 @@ bool phg::epipolarTest(const cv::Vec2d &pt0, const cv::Vec2d &pt1, const cv::Mat
     const auto l = F * cv::Vec3d(pt0(0), pt0(1), 1.0);          // line from matrix + point
     const auto f = (cv::Vec3d(pt1(0), pt1(1), 1.0).t() * l)(0); // signed distance multiplied by normal vector length
     const auto n2 = (l(0) * l(0) + l(1) * l(1));                // squared normal vector
+    
+    if (false) {
+        std::cout << "calculated signed distance=" 
+                << f << " / " << std::sqrt(n2) << " = " << f / std::sqrt(n2)
+                << " from line=" << l << " vs " << t << std::endl;
+    }
     
     return f * f < t * t * n2;                                  // avoid division and sqrt in comparison
 }
