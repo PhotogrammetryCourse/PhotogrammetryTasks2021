@@ -25,49 +25,52 @@ namespace {
     // (см. Hartley & Zisserman p.279)
     cv::Matx33d estimateFMatrixDLT(const cv::Vec2d *m0, const cv::Vec2d *m1, int count)
     {
-        throw std::runtime_error("not implemented yet");
-//        int a_rows = TODO;
-//        int a_cols = TODO;
-//
-//        Eigen::MatrixXd A(a_rows, a_cols);
-//
-//        for (int i_pair = 0; i_pair < count; ++i_pair) {
-//
-//            double x0 = m0[i_pair][0];
-//            double y0 = m0[i_pair][1];
-//
-//            double x1 = m1[i_pair][0];
-//            double y1 = m1[i_pair][1];
-//
-////            std::cout << "(" << x0 << ", " << y0 << "), (" << x1 << ", " << y1 << ")" << std::endl;
-//
-//            TODO
-//        }
-//
-//        Eigen::JacobiSVD<Eigen::MatrixXd> svda(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
-//        Eigen::VectorXd null_space = TODO
-//
-//        Eigen::MatrixXd F(3, 3);
-//        F.row(0) << null_space[0], null_space[1], null_space[2];
-//        F.row(1) << null_space[3], null_space[4], null_space[5];
-//        F.row(2) << null_space[6], null_space[7], null_space[8];
-//
-////             Поправить F так, чтобы соблюдалось свойство фундаментальной матрицы (последнее сингулярное значение = 0)
-//        Eigen::JacobiSVD<Eigen::MatrixXd> svdf(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
-//
-//          TODO
-//
-//        cv::Matx33d Fcv;
-//        copy(F, Fcv);
-//
-//        return Fcv;
+        int a_rows = count;
+        int a_cols = 9;
+
+        Eigen::MatrixXd A(a_rows, a_cols);
+
+        for (int i_pair = 0; i_pair < count; ++i_pair) {
+            double x0 = m0[i_pair][0];
+            double y0 = m0[i_pair][1];
+
+            double x1 = m1[i_pair][0];
+            double y1 = m1[i_pair][1];
+
+            std::cout << "(" << x0 << ", " << y0 << "), (" << x1 << ", " << y1 << ")" << std::endl;
+
+            std::vector<double> col_val = {x1 * x0, x1 * y0, x1, y1 * x0, y1 * y0, y1, x0, y0, 1};
+            for (int i = 0; i < a_cols; ++i) {
+                A(i_pair, i) = col_val[i];
+            }
+        }
+
+        Eigen::JacobiSVD<Eigen::MatrixXd> svda(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
+        Eigen::VectorXd null_space = svda.matrixV().transpose().row(count - 1);
+
+        Eigen::MatrixXd F(3, 3);
+        F.row(0) << null_space[0], null_space[1], null_space[2];
+        F.row(1) << null_space[3], null_space[4], null_space[5];
+        F.row(2) << null_space[6], null_space[7], null_space[8];
+
+//             Поправить F так, чтобы соблюдалось свойство фундаментальной матрицы (последнее сингулярное значение = 0)
+        Eigen::JacobiSVD<Eigen::MatrixXd> svdf(F, Eigen::ComputeFullU | Eigen::ComputeFullV);
+        Eigen::MatrixXd D = svdf.singularValues().asDiagonal().toDenseMatrix();
+        D(2, 2) = 0;
+
+        F = svdf.matrixU() * D * svdf.matrixV().transpose();
+
+        cv::Matx33d Fcv;
+        copy(F, Fcv);
+
+        return Fcv;
     }
 
     // Нужно создать матрицу преобразования, которая сдвинет переданное множество точек так, что центр масс перейдет в ноль, а Root Mean Square расстояние до него станет sqrt(2)
     // (см. Hartley & Zisserman p.107 Why is normalization essential?)
     cv::Matx33d getNormalizeTransform(const std::vector<cv::Vec2d> &m)
     {
-        throw std::runtime_error("not implemented yet");
+        throw std::runtime_error("not implemented yet getNormalizeTransform");
     }
 
     cv::Vec2d transformPoint(const cv::Vec2d &pt, const cv::Matx33d &T)
