@@ -39,14 +39,18 @@ void phg::randomSample(std::vector<int> &dst, int max_id, int sample_size, uint6
     }
 }
 
+//http://o-math.com/math/library/analytic_geometry/point-to-line-2d/
+double distance(const cv::Vec3d & p,  const cv::Vec3d line){
+    return p.dot(line) / std::sqrt(line(0) * line(0) + line(1) * line(1));
+}
+
 // проверяет, что расстояние от точки до линии меньше порога
 bool phg::epipolarTest(const cv::Vec2d &pt0, const cv::Vec2d &pt1, const cv::Matx33d &F, double t)
 {
 
    cv::Vec3d homopt0 = cv::Vec3d(pt0(0), pt0(1), 1.);
    cv::Vec3d homopt1 = cv::Vec3d(pt1(0), pt1(1), 1.);
-   cv::Vec3d res = (F * homopt0) ;
-   //http://o-math.com/math/library/analytic_geometry/point-to-line-2d/
-   double val = homopt1.dot(res) / std::sqrt(res(0) * res(0) + res(1) * res(1));
-   return std::fabs(val) < t;
+   cv::Vec3d res0 = (F * homopt0) ;
+
+   return std::fabs(distance(homopt1, res0)) < t;
 }

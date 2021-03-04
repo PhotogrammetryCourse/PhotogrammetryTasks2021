@@ -48,10 +48,6 @@ cv::Matx33d estimateFMatrixDLT(const cv::Vec2d *m0, const cv::Vec2d *m1, int cou
     Eigen::JacobiSVD<Eigen::MatrixXd> svda(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
     Eigen::VectorXd null_space = svda.matrixV().col(svda.matrixV().cols()-1);
 
-
-
-    //    std::cout << " null_space " << A * null_space << std::endl;
-
     Eigen::MatrixXd F(3, 3);
     F.row(0) << null_space[0], null_space[1], null_space[2];
     F.row(1) << null_space[3], null_space[4], null_space[5];
@@ -65,17 +61,6 @@ cv::Matx33d estimateFMatrixDLT(const cv::Vec2d *m0, const cv::Vec2d *m1, int cou
     D(2,2) =0.;
     F = svdf.matrixU() *D * svdf.matrixV().transpose();
 
-    //    Eigen::Matrix3d DD = Eigen::Matrix3d::Identity();
-    //    DD(0,0) = svdf.singularValues()(0);
-    //    DD(1,1) = svdf.singularValues()(1);
-    //    DD(2,2) = svdf.singularValues()(2);
-
-    //    std::cout << "F = " << F << std::endl<< "check " << svdf.matrixU() * svdf.singularValues().asDiagonal() * svdf.matrixV().transpose() << std::endl;
-    //    std::cout << "check2 " << svdf.matrixU() * (DD * svdf.matrixV().transpose()) << std::endl;
-
-    //
-    //          TODO
-    //
     cv::Matx33d Fcv;
     copy(F, Fcv);
     //    infoF(Fcv);
@@ -155,7 +140,7 @@ cv::Matx33d estimateFMatrixRANSAC(const std::vector<cv::Vec2d> &m0, const std::v
     //        throw std::runtime_error("not implemented yet");
     //        // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
     //        // будет отличаться от случая с гомографией
-    const int n_trials = 1500;//! TODO рассчитать
+    const int n_trials =10500;//! TODO рассчитать
 
     const int n_samples = 8; //
     uint64_t seed = 1;
@@ -183,7 +168,7 @@ cv::Matx33d estimateFMatrixRANSAC(const std::vector<cv::Vec2d> &m0, const std::v
 
         int support = 0;
         for (int i = 0; i < n_matches; ++i) {
-            if (phg::epipolarTest(m0[i], m1[i], F, threshold_px) && phg::epipolarTest(m1[i], m0[i], F, threshold_px))
+            if (phg::epipolarTest(m0[i], m1[i], F, threshold_px) && phg::epipolarTest(m1[i], m0[i], F.t(), threshold_px))
             {
                 ++support;
             }

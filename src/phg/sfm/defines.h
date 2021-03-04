@@ -83,3 +83,21 @@ inline void copy(const EIGEN_TYPE &F, matrix3d &Fcv)
     Fcv(1, 0) = F(1, 0); Fcv(1, 1) = F(1, 1); Fcv(1, 2) = F(1, 2);
     Fcv(2, 0) = F(2, 0); Fcv(2, 1) = F(2, 1); Fcv(2, 2) = F(2, 2);
 }
+
+
+inline cv::Vec2d from_homogenus(const cv::Vec3d& p){
+    return cv::Vec2d(p(0),p(1));
+}
+
+inline cv::Vec3d from_homogenus(const cv::Vec4d& p){
+    return cv::Vec3d(p(0),p(1),p(2));
+}
+
+inline cv::Vec3d to_homogenus(const cv::Vec2d& p){
+    return cv::Vec3d(p(0),p(1),1.);
+}
+
+inline cv::Vec4d to_homogenus(const cv::Vec3d& p){
+    return cv::Vec4d(p(0),p(1),p(2), 1.);
+}
+

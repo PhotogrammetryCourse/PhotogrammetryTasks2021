@@ -11,26 +11,17 @@
 // (см. Hartley & Zisserman p.312)
 cv::Vec4d phg::triangulatePoint(const cv::Matx34d *Ps, const cv::Vec3d *ms, int count)
 {
-//    std::cout << " PS " << Ps[0] <<std::endl;
-//    std::cout << " PS monor " << Ps[0].get_minor<1,4>(2,0) <<std::endl;
-    cv::Matx44d Acv;
+    Eigen::Matrix4d A_E;
     for (int i = 0; i < count; ++i) {
+        cv::Matx14d v1 = Ps[i].row(2) * ms[i](0) - Ps[i].row(0);
+        cv::Matx14d v2 = Ps[i].row(2) * ms[i](1) - Ps[i].row(1);
 
-        std::cout << "f " << Ps[i].get_minor<1,4>(2,0) * ms[i](0) << std::endl;
-        std::cout << "f " << Ps[i].get_minor<1,4>(0,0) << std::endl;
-        std::cout << "f " << Ps[i].get_minor<1,4>(2,0) * ms[i](0) - Ps[i].get_minor<1,4>(0,0) << std::endl;
-         Acv.get_minor<1,4>(i * 2,0) = Ps[i].get_minor<1,4>(2,0) * ms[i](0) - Ps[i].get_minor<1,4>(0,0);
-         Acv.get_minor<1,4>(i* 2 + 1,0) = Ps[i].get_minor<1,4>(2,0) * ms[i](1) - Ps[i].get_minor<1,4>(1,0);
+        A_E.block<1,4>(i*2,0) << v1(0), v1(1), v1(2), v1(3);
+        A_E.block<1,4>(i*2+1,0) << v2(0), v2(1), v2(2), v2(3);
 
     }
-
-    Eigen::Matrix4d A;
-    copy(Acv, A);
-
-    Eigen::JacobiSVD<Eigen::MatrixXd> svda(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-    Eigen::Vector4d rhs(0., 0., 0.,0.);
-    Eigen::Vector4d res = svda.solve(rhs);
+    Eigen::JacobiSVD<Eigen::MatrixXd> svda(A_E, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::Vector4d res = svda.matrixV().col(svda.matrixV().cols()-1);
 
     cv::Vec4d out;
     copy(res, out);
