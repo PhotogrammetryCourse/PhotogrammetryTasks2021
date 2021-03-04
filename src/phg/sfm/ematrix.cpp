@@ -18,8 +18,17 @@ namespace {
         copy(Ecv, E);
 
         Eigen::JacobiSVD<Eigen::MatrixXd> svd(E, Eigen::ComputeFullU | Eigen::ComputeFullV);
-        throw std::runtime_error("not implemented yet");
-// TODO
+        
+        auto singular = svd.singularValues();
+        singular[1] = singular[0];
+        for (size_t i = 2; i < singular.rows(); ++i) {
+            singular[i] = 0;
+        }
+
+        auto matrix_s = Eigen::MatrixXd(E.rows(), E.cols());
+        matrix_s.diagonal() = singular;
+        
+        E = svd.matrixU() * matrix_s * svd.matrixV().transpose();
 
         copy(E, Ecv);
     }
@@ -28,12 +37,11 @@ namespace {
 
 cv::Matx33d phg::fmatrix2ematrix(const cv::Matx33d &F, const phg::Calibration &calib0, const phg::Calibration &calib1)
 {
-    throw std::runtime_error("not implemented yet");
-//    matrix3d E = TODO;
-//
-//    ensureSpectralProperty(E);
-//
-//    return E;
+    matrix3d E = calib0.K().t() * F * calib1.K();
+
+    ensureSpectralProperty(E);
+
+    return E;
 }
 
 namespace {
