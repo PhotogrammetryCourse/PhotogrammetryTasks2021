@@ -15,25 +15,26 @@ namespace {
     void ensureSpectralProperty(matrix3d &Ecv)
     {
         Eigen::MatrixXd E;
-        copy(Ecv, E);
+
 
         Eigen::JacobiSVD<Eigen::MatrixXd> svd(E, Eigen::ComputeFullU | Eigen::ComputeFullV);
-        throw std::runtime_error("not implemented yet");
-// TODO
+        Eigen::DiagonalMatrix<double, 3> S(1, 1, 0);
+        E = svd.matrixU() * S * (svd.matrixV().transpose());
 
-        copy(E, Ecv);
+        copy(Ecv, E);
     }
 
 }
 
 cv::Matx33d phg::fmatrix2ematrix(const cv::Matx33d &F, const phg::Calibration &calib0, const phg::Calibration &calib1)
 {
-    throw std::runtime_error("not implemented yet");
-//    matrix3d E = TODO;
-//
-//    ensureSpectralProperty(E);
-//
-//    return E;
+    matrix3d K1_tr;
+    cv::transpose(calib1.K(), K1_tr);
+    matrix3d E = K1_tr * F * calib0.K();
+
+    ensureSpectralProperty(E);
+
+    return E;
 }
 
 namespace {
@@ -89,12 +90,12 @@ namespace {
 void phg::decomposeEMatrix(cv::Matx34d &P0, cv::Matx34d &P1, const cv::Matx33d &Ecv, const std::vector<cv::Vec2d> &m0, const std::vector<cv::Vec2d> &m1, const Calibration &calib0, const Calibration &calib1)
 {
     throw std::runtime_error("not implemented yet");
-//    if (m0.size() != m1.size()) {
-//        throw std::runtime_error("decomposeEMatrix : m0.size() != m1.size()");
-//    }
-//
-//    using mat = Eigen::MatrixXd;
-//    using vec = Eigen::VectorXd;
+    if (m0.size() != m1.size()) {
+        throw std::runtime_error("decomposeEMatrix : m0.size() != m1.size()");
+    }
+
+    using mat = Eigen::MatrixXd;
+    using vec = Eigen::VectorXd;
 //
 //    mat E;
 //    copy(Ecv, E);
