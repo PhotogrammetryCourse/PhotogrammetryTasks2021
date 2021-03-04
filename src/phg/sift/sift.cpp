@@ -17,7 +17,7 @@
 
 #define DEBUG_ENABLE     0
 #define DEBUG_PATH       std::string("data/debug/test_sift/debug/")
-#define INCREMENTAL_SIGMA 1.6
+#define INCREMENTAL_SIGMA 1
 
 #define NOCTAVES                    3                    // число октав
 #define OCTAVE_NLAYERS              3                    // в [lowe04] это число промежуточных степеней размытия картинки в рамках одной октавы обозначается - s, т.е. s слоев в каждой октаве
