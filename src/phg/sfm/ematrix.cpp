@@ -63,7 +63,7 @@ matrix34d composeP(const Eigen::MatrixXd &R, const Eigen::VectorXd &t)
     return result;
 }
 
-double getDepth(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
+bool depthTest(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
 {
     vector3d p0 = calib0.unproject(m0);
     vector3d p1 = calib1.unproject(m1);
@@ -76,7 +76,11 @@ double getDepth(const vector2d &m0, const vector2d &m1, const phg::Calibration &
         X /= X[3];
     }
 
-    return X[2];
+    double depth0 = calib0.unproject(m0).dot(P0 * X);
+    double depth1 = calib1.unproject(m1).dot(P1 * X);
+
+    // точка должна иметь положительную глубину для обеих камер
+    return depth0 > 0 && depth1 > 0;
 }
 }
 
@@ -149,7 +153,7 @@ void phg::decomposeEMatrix(cv::Matx34d &P0, cv::Matx34d &P1, const cv::Matx33d &
         int count = 0;
         for (int j = 0; j < (int) m0.size(); ++j) {
 
-            if(::getDepth(m0[j],m1[j],calib0,calib1,P0, P1s[i]) > 0)
+            if(depthTest(m0[j],m1[j],calib0,calib1,P0, P1s[i]) > 0)
             {
                 ++count;
             }
