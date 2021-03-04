@@ -137,10 +137,11 @@ cv::Matx33d estimateFMatrixRANSAC(const std::vector<cv::Vec2d> &m0, const std::v
         getNormalizeTransform(m0_t);
         getNormalizeTransform(m1_t);
     }
-    //        throw std::runtime_error("not implemented yet");
-    //        // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
-    //        // будет отличаться от случая с гомографией
-    const int n_trials =10500;//! TODO рассчитать
+    // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
+    // будет отличаться от случая с гомографией
+    const int n_trials = count_iteraion(m0.size(), 0.4, 8);
+
+    std::cout << "estimateFMatrixRANSAC count iteration = " << n_trials << std::endl;
 
     const int n_samples = 8; //
     uint64_t seed = 1;
@@ -161,10 +162,7 @@ cv::Matx33d estimateFMatrixRANSAC(const std::vector<cv::Vec2d> &m0, const std::v
 
         cv::Matx33d F = estimateFMatrixDLT(ms0, ms1, n_samples);
 
-        // denormalize
-        //            F = TODO
-
-        F = TN1.t() * F * TN0;
+        F = TN1.t() * F * TN0;// denormalize
 
         int support = 0;
         for (int i = 0; i < n_matches; ++i) {

@@ -101,3 +101,14 @@ inline cv::Vec4d to_homogenus(const cv::Vec3d& p){
     return cv::Vec4d(p(0),p(1),p(2), 1.);
 }
 
+inline int count_iteraion(int count_points, double w, int n){
+    double T = static_cast<double>(count_points);
+    double I = w * T;
+    double q = 1.;
+    for (int i = 0; i < n; ++i) {
+        q *= (I - double(i)) / (T - double(i));
+    }
+    return std::log(1. - (1.-q)) / std::log(1. - q) ;
+
+}
+

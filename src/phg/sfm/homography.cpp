@@ -1,5 +1,7 @@
 #include "homography.h"
 
+#include "defines.h"
+
 #include <opencv2/calib3d/calib3d.hpp>
 #include <iostream>
 #include <set>
@@ -197,7 +199,8 @@ cv::Mat estimateHomographyRANSAC(const std::vector<cv::Point2f> &points_lhs, con
     const int n_matches = points_lhs.size();
 
     // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
-    const int n_trials = 700; // для T = 500 точек, w=0.3, n=4
+    const int n_trials =  count_iteraion(points_lhs.size(), 0.4,4); // для T = points_lhs точек, w=0.3, n=4
+    std::cout << "estimateHomographyRANSAC count iteration = " << n_trials << std::endl;
 
     const int n_samples = 4;
     uint64_t seed = 1;

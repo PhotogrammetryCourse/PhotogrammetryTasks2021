@@ -49,7 +49,6 @@ matrix34d canonicalizeP(const matrix34d &P)
 // (см. Hartley & Zisserman p.178)
 cv::Matx34d estimateCameraMatrixDLT(const cv::Vec3d *Xs, const cv::Vec3d *xs, int count)
 {
-    //        throw std::runtime_error("not implemented yet");
     using mat = Eigen::MatrixXd;
     using vec = Eigen::VectorXd;
 
@@ -95,7 +94,9 @@ cv::Matx34d estimateCameraMatrixRANSAC(const phg::Calibration &calib, const std:
 
     // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
     // будет отличаться от случая с гомографией
-    const int n_trials = 10000;//TODO
+    const int n_trials = count_iteraion(n_points, 0.4, 6);
+
+    std::cout << "estimateCameraMatrixRANSAC count iteration = " << n_trials << std::endl;
 
     const double threshold_px = 3;
 
@@ -121,7 +122,6 @@ cv::Matx34d estimateCameraMatrixRANSAC(const phg::Calibration &calib, const std:
         int support = 0;
         for (int i = 0; i < n_points; ++i) {
             cv::Vec3d d3 = calib.project(P * to_homogenus(X[i]));
-//            std::cout << "d3 = " << d3 << " " << d3 / d3(2) <<std::endl;
             cv::Vec2d px = from_homogenus(d3 / d3(2));//TODO спроецировать 3Д точку в пиксель с использованием P и calib;
             if (cv::norm(px - x[i]) < threshold_px) {
                 ++support;
@@ -148,7 +148,6 @@ cv::Matx34d estimateCameraMatrixRANSAC(const phg::Calibration &calib, const std:
 
     return best_P;
 }
-
 
 }
 
