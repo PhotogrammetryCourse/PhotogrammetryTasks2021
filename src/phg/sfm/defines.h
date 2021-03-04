@@ -49,20 +49,31 @@ inline matrix34d make34(const matrix3d &R, const vector3d &O)
     return result;
 }
 
-template <typename EIGEN_TYPE>
-inline void copy(const matrix3d &Fcv, EIGEN_TYPE &F)
+template <int SIZE, typename EIGEN_TYPE>
+inline void copy(const cv::Matx<double, SIZE, SIZE> &Fcv, EIGEN_TYPE &F)
 {
-    F = EIGEN_TYPE(3, 3);
-
-    F(0, 0) = Fcv(0, 0); F(0, 1) = Fcv(0, 1); F(0, 2) = Fcv(0, 2);
-    F(1, 0) = Fcv(1, 0); F(1, 1) = Fcv(1, 1); F(1, 2) = Fcv(1, 2);
-    F(2, 0) = Fcv(2, 0); F(2, 1) = Fcv(2, 1); F(2, 2) = Fcv(2, 2);
+    F = EIGEN_TYPE(SIZE, SIZE);
+    for (size_t i = 0; i < SIZE; ++i) {
+        for (size_t j = 0; j < SIZE; ++j) {
+            F(i, j) = Fcv(i, j);
+        }
+    }
+//    F(0, 0) = Fcv(0, 0); F(0, 1) = Fcv(0, 1); F(0, 2) = Fcv(0, 2);
+//    F(1, 0) = Fcv(1, 0); F(1, 1) = Fcv(1, 1); F(1, 2) = Fcv(1, 2);
+//    F(2, 0) = Fcv(2, 0); F(2, 1) = Fcv(2, 1); F(2, 2) = Fcv(2, 2);
 }
 
-template <typename EIGEN_TYPE>
-inline void copy(const EIGEN_TYPE &F, matrix3d &Fcv)
+
+
+template <int SIZE, typename EIGEN_TYPE>
+inline void copy(const EIGEN_TYPE &F, cv::Matx<double, SIZE, SIZE>  &Fcv)
 {
-    Fcv(0, 0) = F(0, 0); Fcv(0, 1) = F(0, 1); Fcv(0, 2) = F(0, 2);
-    Fcv(1, 0) = F(1, 0); Fcv(1, 1) = F(1, 1); Fcv(1, 2) = F(1, 2);
-    Fcv(2, 0) = F(2, 0); Fcv(2, 1) = F(2, 1); Fcv(2, 2) = F(2, 2);
+    for (size_t i = 0; i < SIZE; ++i) {
+        for (size_t j = 0; j < SIZE; ++j) {
+            Fcv(i, j) = F(i, j);
+        }
+    }
+//    Fcv(0, 0) = F(0, 0); Fcv(0, 1) = F(0, 1); Fcv(0, 2) = F(0, 2);
+//    Fcv(1, 0) = F(1, 0); Fcv(1, 1) = F(1, 1); Fcv(1, 2) = F(1, 2);
+//    Fcv(2, 0) = F(2, 0); Fcv(2, 1) = F(2, 1); Fcv(2, 2) = F(2, 2);
 }
