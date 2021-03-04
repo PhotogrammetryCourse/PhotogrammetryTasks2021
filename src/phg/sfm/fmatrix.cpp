@@ -37,7 +37,7 @@ namespace {
             double x1 = m1[i_pair][0];
             double y1 = m1[i_pair][1];
 
-            std::cout << "(" << x0 << ", " << y0 << "), (" << x1 << ", " << y1 << ")" << std::endl;
+            //std::cout << "(" << x0 << ", " << y0 << "), (" << x1 << ", " << y1 << ")" << std::endl;
 
             std::vector<double> col_val = {x1 * x0, x1 * y0, x1, y1 * x0, y1 * y0, y1, x0, y0, 1};
             for (int i = 0; i < a_cols; ++i) {
@@ -78,9 +78,6 @@ namespace {
         mean_x /= m.size();
         mean_y /= m.size();
 
-        std::cout << m.size() << "\n";
-        std::cout << mean_x << " " << mean_y << "\n";
-
         double mean2_x = 0, mean2_y = 0;
         for (int i = 0; i < m.size(); ++i) {
             mean2_x += (m[i][0] - mean_x);
@@ -88,13 +85,9 @@ namespace {
         }
         mean2_x /= m.size();
         mean2_y /= m.size();
-        std::cout << mean2_x << " " << mean2_y << "\n";
-
 
         double data[9] = {1., 0, -mean_x, 0, 1., -mean_y, 0, 0, 1.};
         cv::Matx33d shift(data);
-        std::cout << "shift matrix " <<shift << "\n";
-        std::cout << m[0] << " " << shift * cv::Vec3d(m[0][0], m[0][1], 1.0) << "\n";
 
         double cx = 0, cy = 0;
         for (int i = 0; i < m.size(); ++i) {
@@ -102,12 +95,12 @@ namespace {
             cy += (m[i][1] - mean_y) * (m[i][1] - mean_y);
         }
 
-        cx = sqrt(cx / 2);
-        cy = sqrt(cy / 2);
+        cx = sqrt(2 / cx);
+        cy = sqrt(2 / cy);
         double data2[9] = {cx, 0, 0, 0, cy, 0, 0, 0, 1};
         cv::Matx33d scale(data2);
 
-        return shift;
+        return scale * shift;
     }
 
     cv::Vec2d transformPoint(const cv::Vec2d &pt, const cv::Matx33d &T)
@@ -141,8 +134,8 @@ namespace {
 
         {
 //             Проверьте лог: при повторной нормализации должно найтись почти единичное преобразование
-            std::cout << "check find norm matrix: " << getNormalizeTransform(m0_t) << "\n";
-            std::cout << "check find norm matrix: " << getNormalizeTransform(m1_t) << "\n";
+            //std::cout << "check find norm matrix: " << getNormalizeTransform(m0_t) << "\n";
+            //std::cout << "check find norm matrix: " << getNormalizeTransform(m1_t) << "\n";
         }
 
 
