@@ -45,7 +45,7 @@ __kernel void bruteforce_matcher(__global const float* train,
         float train_value_dim = train[train_idx * NDIM + dim_id];
         for (int query_local_i = 0; query_local_i < KEYPOINTS_PER_WG; ++query_local_i) {
             float query_value_dim = query_local[query_local_i * NDIM + dim_id];
-            dist2_for_reduction[dim_id] = pow((query_value_dim - train_value_dim), 2); // * (query_value_dim - train_value_dim);
+            dist2_for_reduction[dim_id] = (query_value_dim - train_value_dim) * (query_value_dim - train_value_dim);
             // посчитать квадрат расстояния по нашей размерности (dim_id) и сохранить его в нашу ячейку в dist2_for_reduction
 
             barrier(CLK_LOCAL_MEM_FENCE);
