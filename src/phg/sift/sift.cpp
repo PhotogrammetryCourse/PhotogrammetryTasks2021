@@ -37,7 +37,7 @@
 #define DESCRIPTOR_NBINS           8 // 8 корзин-направлений в каждой гистограмме дескриптора (4х4 гистограммы, каждая по 8 корзин, итого 4x4x8=128 значений в дескрипторе)
 #define DESCRIPTOR_SAMPLES_N       4 // 4x4 замера для каждой гистограммы дескриптора (всего гистограмм 4х4) итого 16х16 замеров
 #define DESCRIPTOR_SAMPLE_WINDOW_R 1.0 // минимальный радиус окна в рамках которого строится гистограмма из 8 корзин-направлений (т.е. для каждого из 16 элементов дескриптора), R=1 => 1x1 окно
-#define MAX_POINTS_FROM_ANGLES 5
+#define MAX_POINTS_FROM_ANGLES 3
 
 #define DESCRIPTOR_WINDOW 16 // 16x16 для дескриптора точки
 #define DESCRIPTOR_ANGLE_STEP 45
