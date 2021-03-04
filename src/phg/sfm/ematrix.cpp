@@ -63,8 +63,8 @@ namespace {
     bool depthTest(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
     {
         // скомпенсировать калибровки камер
-        vector3d p0 = calib0.K().inv() * vector3d{m0[0], m0[1], 1};
-        vector3d p1 = calib1.K().inv() * vector3d{m1[0], m1[1], 1};
+        vector3d p0 = calib0.unproject(m0);
+        vector3d p1 = calib1.unproject(m1);
 
         vector3d ps[2] = {p0, p1};
         matrix34d Ps[2] = {P0, P1};
@@ -75,7 +75,6 @@ namespace {
         }
 
         // точка должна иметь положительную глубину для обеих камер
-        // TODO какая точка???????????
         double d1 = p0.dot(P0*X);
         double d2 = p1.dot(P1*X);
 //        std::cout << "d1: " << d1 << "\n";

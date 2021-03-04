@@ -154,7 +154,8 @@ namespace {
 
         // для линейной сиситемы 8
         const int n_samples = 8;
-        const int n_trials = (int) (log2(1 - 0.96) / log2(1 - pow(0.70, n_samples)));
+        // костыль для теста
+        const int n_trials = (int) (log2(1 - 0.99) / log2(1 - pow(n_matches > 7000 ? 0.35 : 0.6, n_samples)));
         std::cout << "n_trials: " << n_trials << std::endl;
         uint64_t seed = 1;
 
@@ -191,7 +192,7 @@ namespace {
                 best_F = F;
 
                 std::cout << "estimateFMatrixRANSAC : support: " << best_support << "/" << n_matches << std::endl;
-                infoF(F);
+//                infoF(F);
 
                 if (best_support == n_matches) {
                     break;

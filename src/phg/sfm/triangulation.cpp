@@ -25,9 +25,6 @@ cv::Vec4d phg::triangulatePoint(const cv::Matx34d *Ps, const cv::Vec3d *ms, int 
     //  x1(p1_31, p1_32, p1_33, p1_34) - (p1_11, p1_12, p1_13, p1_14)
     //  y1(p1_31, p1_32, p1_33, p1_34) - (p1_21, p1_22, p1_23, p1_24)
 
-    std::cout << "Ps[0]: \n" << Ps[0] << std::endl;
-    std::cout << "Ps[01]: \n" << Ps[1] << std::endl;
-
     double x0 = ms[0][0];
     double y0 = ms[0][1];
     double x1 = ms[1][0];
