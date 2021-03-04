@@ -101,7 +101,7 @@ namespace {
         const double threshold_px = 3;
 
         const int n_samples = 6;
-        const int n_trials = (int) (log2(1 - 0.99) / log2(1 - pow(n_points > 7000 ? 0.35 : 0.6, n_samples)));
+        const int n_trials = 10000;
         std::cout << "n_trials: " << n_trials << "\n";
         std::cout << "n_points: " << n_points << "\n";
         uint64_t seed = 1;

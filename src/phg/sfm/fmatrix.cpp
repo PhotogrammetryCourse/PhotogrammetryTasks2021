@@ -155,7 +155,7 @@ namespace {
         // для линейной сиситемы 8
         const int n_samples = 8;
         // костыль для теста
-        const int n_trials = (int) (log2(1 - 0.99) / log2(1 - pow(n_matches > 7000 ? 0.35 : 0.6, n_samples)));
+        const int n_trials = 10000;
         std::cout << "n_trials: " << n_trials << std::endl;
         uint64_t seed = 1;
 
