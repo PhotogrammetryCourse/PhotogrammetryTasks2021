@@ -62,21 +62,22 @@ namespace {
         return result;
     }
 
-    double getDepth(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
+    bool depthTest(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
     {
-        throw std::runtime_error("not implemented yet");
-//        vector3d p0 = TODO;
-//        vector3d p1 = TODO;
-//
-//        vector3d ps[2] = {p0, p1};
-//        matrix34d Ps[2] = {P0, P1};
-//
-//        vector4d X = phg::triangulatePoint(Ps, ps, 2);
-//        if (X[3] != 0) {
-//            X /= X[3];
-//        }
-//
-//        return TODO;
+        // скомпенсировать калибровки камер
+        vector3d p0 = calib0.unproject(m0);
+        vector3d p1 = calib1.unproject(m1);
+
+        vector3d ps[2] = {p0, p1};
+        matrix34d Ps[2] = {P0, P1};
+
+        vector4d X = phg::triangulatePoint(Ps, ps, 2);
+        if (X[3] != 0) {
+            X /= X[3];
+        }
+
+        // точка должна иметь положительную глубину для обеих камер
+        return p0.dot((P0 * X)) > 0 && p1.dot((P1 * X)) > 0;
     }
 }
 
@@ -107,7 +108,7 @@ void phg::decomposeEMatrix(cv::Matx34d &P0, cv::Matx34d &P1, const cv::Matx33d &
     vec s = svd.singularValues();
     mat V = svd.matrixV();
 
-//    // U, V must be rotation matrices, not just orthogonal
+   // U, V must be rotation matrices, not just orthogonal
    if (U.determinant() < 0) U = -U;
    if (V.determinant() < 0) V = -V;
 
@@ -148,7 +149,7 @@ void phg::decomposeEMatrix(cv::Matx34d &P0, cv::Matx34d &P1, const cv::Matx33d &
     for (int i = 0; i < 4; ++i) {
         int count = 0;
         for (int j = 0; j < (int) m0.size(); ++j) {
-            if (getDepth(m0[j], m1[j], calib0, calib1, P0, P1s[i]) > 0) {
+            if (depthTest(m0[j], m1[j], calib0, calib1, P0, P1s[i])) {
                 ++count;
             }
         }
