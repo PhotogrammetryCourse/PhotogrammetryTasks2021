@@ -128,8 +128,7 @@ void phg::decomposeEMatrix(cv::Matx34d &P0, cv::Matx34d &P1, const cv::Matx33d &
     std::cout << "R0:\n" << R0 << std::endl;
     std::cout << "R1:\n" << R1 << std::endl;
 
-    vec t0(3);
-    t0 << 0, 0, 1;
+    vec t0 = U.col(2);
     vec t1 = -t0;
 
     std::cout << "t0:\n" << t0 << std::endl;
