@@ -78,14 +78,6 @@ namespace {
         mean_x /= m.size();
         mean_y /= m.size();
 
-        double mean2_x = 0, mean2_y = 0;
-        for (int i = 0; i < m.size(); ++i) {
-            mean2_x += (m[i][0] - mean_x);
-            mean2_y += (m[i][1] - mean_y);
-        }
-        mean2_x /= m.size();
-        mean2_y /= m.size();
-
         double data[9] = {1., 0, -mean_x, 0, 1., -mean_y, 0, 0, 1.};
         cv::Matx33d shift(data);
 
@@ -94,6 +86,9 @@ namespace {
             cx += (m[i][0] - mean_x) * (m[i][0] - mean_x);
             cy += (m[i][1] - mean_y) * (m[i][1] - mean_y);
         }
+
+        cx /= m.size();
+        cy /= m.size();
 
         cx = sqrt(2 / cx);
         cy = sqrt(2 / cy);
