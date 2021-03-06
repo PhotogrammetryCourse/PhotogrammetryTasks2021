@@ -81,6 +81,8 @@ namespace {
 
     // По трехмерным точкам и их проекциям на изображении определяем положение камеры
     cv::Matx34d estimateCameraMatrixRANSAC(const phg::Calibration &calib, const std::vector<cv::Vec3d> &X, const std::vector<cv::Vec2d> &x) {
+        using vec = Eigen::VectorXd;
+
         if (X.size() != x.size()) {
             throw std::runtime_error("estimateCameraMatrixRANSAC: X.size() != x.size()");
         }
@@ -89,11 +91,11 @@ namespace {
 
         // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
         // будет отличаться от случая с гомографией
-        const int n_trials = TODO;
+        const int n_trials = 10000;//TODO
 
         const double threshold_px = 3;
 
-        const int n_samples = TODO;
+        const int n_samples = 6;
         uint64_t seed = 1;
 
         int best_support = 0;
@@ -106,15 +108,19 @@ namespace {
             cv::Vec3d ms0[n_samples];
             cv::Vec3d ms1[n_samples];
             for (int i = 0; i < n_samples; ++i) {
-                ms0[i] = TODO;
-                ms1[i] = TODO;
+                ms0[i] = X[sample[i]];
+                ms1[i] = calib.unproject(x[sample[i]]);
             }
 
             cv::Matx34d P = estimateCameraMatrixDLT(ms0, ms1, n_samples);
 
             int support = 0;
             for (int i = 0; i < n_points; ++i) {
-                cv::Vec2d px = TODO спроецировать 3Д точку в пиксель с использованием P и calib;
+                cv::Vec4d X4(4);
+                X4 << X[i][0],X[i][1],X[i][2],1.;
+                auto prjPt = calib.project(P * X4);
+                cv::Vec2d px; //спроецировать 3Д точку в пиксель с использованием P и calib;
+                px << prjPt[0]/prjPt[2],prjPt[1]/prjPt[2];
                 if (cv::norm(px - x[i]) < threshold_px) {
                     ++support;
                 }
