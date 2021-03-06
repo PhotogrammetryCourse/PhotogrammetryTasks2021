@@ -46,7 +46,7 @@ namespace {
         }
 
         Eigen::JacobiSVD<Eigen::MatrixXd> svda(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
-        Eigen::VectorXd null_space = svda.matrixV().transpose().row(count - 1);
+        Eigen::VectorXd null_space = svda.matrixV().transpose().row(svda.matrixV().cols() - 1);
 
         Eigen::MatrixXd F(3, 3);
         F.row(0) << null_space[0], null_space[1], null_space[2];
