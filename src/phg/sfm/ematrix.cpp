@@ -65,7 +65,7 @@ namespace {
         return result;
     }
 
-    double getDepth(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
+    bool depthTest(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
     {
         vector3d p0 = calib0.unproject(m0);
         vector3d p1 = calib1.unproject(m1);
@@ -78,7 +78,7 @@ namespace {
             X /= X[3];
         }
  
-        return X[2];
+        return p0.dot(P0 * X) > 0 && p1.dot(P1 * X) > 0;
     }
 }
 
@@ -142,7 +142,7 @@ void phg::decomposeEMatrix(cv::Matx34d &P0, cv::Matx34d &P1, const cv::Matx33d &
     for (int i = 0; i < 4; ++i) {
         int count = 0;
         for (int j = 0; j < (int) m0.size(); ++j) {
-            if (getDepth(m0[j], m1[j], calib0, calib1, P0, P1s[i]) > 0) {
+            if (depthTest(m0[j], m1[j], calib0, calib1, P0, P1s[i])) {
                 ++count;
             }
         }
