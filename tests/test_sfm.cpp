@@ -18,7 +18,7 @@
 #include "utils/test_utils.h"
 
 
-#define ENABLE_MY_SFM 0
+#define ENABLE_MY_SFM 1
 
 namespace {
 
@@ -251,7 +251,7 @@ TEST (SFM, EmatrixDecomposeSimple) {
 #endif
 
     phg::Calibration calib(360, 240);
-    std::cout << "EmatrixSimple: calib: \n" << calib.K() << std::endl;
+    std::cout << "EmatrixDecomposeSimple: calib: \n" << calib.K() << std::endl;
 
     std::vector<cv::Vec2d> pts0, pts1;
     std::srand(1);

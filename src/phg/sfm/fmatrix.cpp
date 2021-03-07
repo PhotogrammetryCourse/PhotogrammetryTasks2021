@@ -32,7 +32,7 @@ namespace {
         const size_t a_rows = count;
         const size_t a_cols = 9;
 
-        const size_t min_sv_idx = count - 1;
+        const size_t min_sv_idx = 8;
         
         Eigen::MatrixXd A(a_rows, a_cols);
 
@@ -86,9 +86,10 @@ namespace {
 
             return total + delta.mul(delta);
         }) / n;
+
         const cv::Vec2d scale
-            // { std::sqrt(2 / mean_dist2(0)), std::sqrt(2 / mean_dist2(1)) };
-            { std::sqrt(2 / (mean_dist2(0) + mean_dist2(1))), std::sqrt(2 / (mean_dist2(0) + mean_dist2(1))) };
+            { std::sqrt(2 / mean_dist2(0)), std::sqrt(2 / mean_dist2(1)) };
+            // { std::sqrt(2 / (mean_dist2(0) + mean_dist2(1))), std::sqrt(2 / (mean_dist2(0) + mean_dist2(1))) };
 
         return cv::Matx33d(
             scale(0), 0       , scale(0) * -center(0),
@@ -144,10 +145,23 @@ namespace {
         int best_support = 0;
         cv::Matx33d best_F;
 
+        std::vector<uint64_t> sample_seeds(n_trials);
+        { // to make runs reproducible with parallel for
+            std::vector<int> sample;
+
+            for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
+                sample_seeds[i_trial] = seed;
+        
+                phg::randomSample(sample, n_matches, n_samples, &seed);    
+            }
+        }
+ 
         #pragma omp parallel for
         for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
+            auto current_seed = sample_seeds[i_trial];
+            
             std::vector<int> sample;
-            phg::randomSample(sample, n_matches, n_samples, &seed);
+            phg::randomSample(sample, n_matches, n_samples, &current_seed);
  
             cv::Vec2d ms0[n_samples];
             cv::Vec2d ms1[n_samples];
@@ -191,6 +205,7 @@ namespace {
 }
 
 cv::Matx33d phg::findFMatrix(const std::vector <cv::Vec2d> &m0, const std::vector <cv::Vec2d> &m1, double threshold_px) {
+    // return phg::findFMatrixCV(m0, m1, threshold_px); // test
     return estimateFMatrixRANSAC(m0, m1, threshold_px);
 }
 

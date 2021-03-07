@@ -118,11 +118,24 @@ namespace {
  
         int best_support = 0;
         cv::Matx34d best_P;
+
+        std::vector<uint64_t> sample_seeds(n_trials);
+        { // to make runs reproducible with parallel for
+            std::vector<int> sample;
+
+            for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
+                sample_seeds[i_trial] = seed;
+        
+                phg::randomSample(sample, n_points, n_samples, &seed);    
+            }
+        }
  
         #pragma omp parallel for
         for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
+            auto current_seed = sample_seeds[i_trial];
+
             std::vector<int> sample;
-            phg::randomSample(sample, n_points, n_samples, &seed);
+            phg::randomSample(sample, n_points, n_samples, &current_seed);
  
             cv::Vec3d ms0[n_samples];
             cv::Vec3d ms1[n_samples];

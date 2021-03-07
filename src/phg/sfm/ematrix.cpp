@@ -20,10 +20,8 @@ namespace {
         Eigen::JacobiSVD<Eigen::MatrixXd> svd(E, Eigen::ComputeFullU | Eigen::ComputeFullV);
         
         auto singular = svd.singularValues();
-        singular[1] = singular[0];
-        for (size_t i = 2; i < singular.rows(); ++i) {
-            singular[i] = 0;
-        }
+        singular[0] = singular[1] = 1;
+        singular[2] = 0;
 
         auto matrix_s = Eigen::MatrixXd(E.rows(), E.cols());
         matrix_s.diagonal() = singular;
@@ -69,8 +67,8 @@ namespace {
 
     double getDepth(const vector2d &m0, const vector2d &m1, const phg::Calibration &calib0, const phg::Calibration &calib1, const matrix34d &P0, const matrix34d &P1)
     {
-        vector3d p0 = calib0.K().t() * vector3d(m0[0], m0[1], 1);
-        vector3d p1 = calib1.K().t() * vector3d(m1[0], m1[1], 1);
+        vector3d p0 = calib0.unproject(m0);
+        vector3d p1 = calib1.unproject(m1);
  
         vector3d ps[2] = {p0, p1};
         matrix34d Ps[2] = {P0, P1};
