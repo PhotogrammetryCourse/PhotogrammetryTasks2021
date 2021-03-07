@@ -4,7 +4,10 @@
 
 #include <iostream>
 #include <numeric>
+#include <stdexcept>
+
 #include <Eigen/SVD>
+
 #include <opencv2/calib3d.hpp>
 
 namespace {
@@ -29,7 +32,7 @@ namespace {
         const size_t a_rows = count;
         const size_t a_cols = 9;
 
-        const size_t min_sv_idx = std::min(a_rows, a_cols) - 1;
+        const size_t min_sv_idx = count - 1;
         
         Eigen::MatrixXd A(a_rows, a_cols);
 
@@ -78,16 +81,19 @@ namespace {
             return total + p;
         }) / n;
         
-        const double mean_dist2 = std::accumulate(m.begin(), m.end(), 0.0, [center](double total, const cv::Vec2d &p) { 
+        const cv::Vec2d mean_dist2 = std::accumulate(m.begin(), m.end(), cv::Vec2d(), [center](const cv::Vec2d &total, const cv::Vec2d &p) { 
             const auto delta = p - center;
 
-            return total + (delta.t() * delta)(0);
+            return total + delta.mul(delta);
         }) / n;
+        const cv::Vec2d scale
+            // { std::sqrt(2 / mean_dist2(0)), std::sqrt(2 / mean_dist2(1)) };
+            { std::sqrt(2 / (mean_dist2(0) + mean_dist2(1))), std::sqrt(2 / (mean_dist2(0) + mean_dist2(1))) };
 
         return cv::Matx33d(
-            1, 0, -center(0),
-            0, 1, -center(1),
-            0, 0, std::sqrt(0.5 * mean_dist2)
+            scale(0), 0       , scale(0) * -center(0),
+            0       , scale(1), scale(1) * -center(1),
+            0       , 0       , 1
         );
     }
 
@@ -120,7 +126,8 @@ namespace {
             m1_t[i] = transformPoint(m1[i], TN1);
         }
 
-        if (false) { // seems ok
+        if (false) 
+        { // seems ok
             // Проверьте лог: при повторной нормализации должно найтись почти единичное преобразование
             std::cout << "secondary normalization should be ~E:\n" 
                       << getNormalizeTransform(m0_t) << "\n"
@@ -129,7 +136,7 @@ namespace {
 
         // https://en.wikipedia.org/wiki/Random_sample_consensus#Parameters
         // будет отличаться от случая с гомографией
-        const int n_trials = 1000; // todo: check
+        const int n_trials = 10000;
  
         const int n_samples = 8;
         uint64_t seed = 1;
@@ -137,8 +144,9 @@ namespace {
         int best_support = 0;
         cv::Matx33d best_F;
 
-        std::vector<int> sample;
+        #pragma omp parallel for
         for (int i_trial = 0; i_trial < n_trials; ++i_trial) {
+            std::vector<int> sample;
             phg::randomSample(sample, n_matches, n_samples, &seed);
  
             cv::Vec2d ms0[n_samples];
@@ -161,16 +169,13 @@ namespace {
                 }
             }
  
+            #pragma omp critical
             if (support > best_support) {
                 best_support = support;
                 best_F = F;
- 
+
                 std::cout << "estimateFMatrixRANSAC : support: " << best_support << "/" << n_matches << std::endl;
                 infoF(F);
- 
-                if (best_support == n_matches) {
-                    break;
-                }
             }
         }
  
