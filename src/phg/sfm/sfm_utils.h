@@ -10,6 +10,6 @@ namespace phg {
 
     bool epipolarTest(const cv::Vec2d &pt0, const cv::Vec2d &pt1, const cv::Matx33d &F, double t);
 
-
+    int getCountTrials(const int &n_samples, const int &size);
 
 }
