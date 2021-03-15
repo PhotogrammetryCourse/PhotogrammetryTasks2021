@@ -22,15 +22,15 @@
 #include <ceres/ceres.h>
 
 // TODO включите Bundle Adjustment (но из любопытства посмотрите как ведет себя реконструкция без BA например для saharov32 без BA)
-#define ENABLE_BA                             0
+#define ENABLE_BA                             1
 // TODO и раскомментируйте вызов runBA ниже
 
 // TODO когда заработает при малом количестве фотографий - увеличьте это ограничение до 100 чтобы попробовать обработать все фотографии (если же успешно будут отрабаывать только N фотографий - отправьте PR выставив здесь это N)
-#define NIMGS_LIMIT                           10 // сколько фотографий обрабатывать (можно выставить меньше чтобы ускорить экспериментирование, или в случае если весь датасет не выравнивается)
+#define NIMGS_LIMIT                           32 // сколько фотографий обрабатывать (можно выставить меньше чтобы ускорить экспериментирование, или в случае если весь датасет не выравнивается)
 #define INTRINSICS_CALIBRATION_MIN_IMGS       5 // начиная со скольки камер начинать оптимизировать внутренние параметры камеры (фокальную длинну и т.п.) - из соображений что "пока камер мало - наблюдений может быть недостаточно чтобы не сойтись к ложной внутренней модели камеры"
 
-#define ENABLE_INSTRINSICS_K1_K2              1 // TODO учитывать ли радиальную дисторсию - коэффициенты k1, k2 попробуйте с ним и и без saharov32, заметна ли разница?
-#define INTRINSIC_K1_K2_MIN_IMGS              7 // начиная со скольки камер начинать оптимизировать k1, k2
+#define ENABLE_INSTRINSICS_K1_K2             1 // TODO учитывать ли радиальную дисторсию - коэффициенты k1, k2 попробуйте с ним и и без saharov32, заметна ли разница?
+#define INTRINSIC_K1_K2_MIN_IMGS              5 // начиная со скольки камер начинать оптимизировать k1, k2
 
 // TODO попробуйте повыключать эти фильтрации выбросов, насколько изменился результат?
 #define ENABLE_OUTLIERS_FILTRATION_3_SIGMA    1
@@ -74,43 +74,43 @@
 
 namespace {
 
-    vector3d relativeOrientationAngles(const matrix3d &R0, const vector3d &O0, const matrix3d &R1, const vector3d &O1) {
-        vector3d a = R0 * vector3d{0, 0, 1};
-        vector3d b = O0 - O1;
-        vector3d c = R1 * vector3d{0, 0, 1};
+vector3d relativeOrientationAngles(const matrix3d &R0, const vector3d &O0, const matrix3d &R1, const vector3d &O1) {
+    vector3d a = R0 * vector3d{0, 0, 1};
+    vector3d b = O0 - O1;
+    vector3d c = R1 * vector3d{0, 0, 1};
 
-        double norma = cv::norm(a);
-        double normb = cv::norm(b);
-        double normc = cv::norm(c);
+    double norma = cv::norm(a);
+    double normb = cv::norm(b);
+    double normc = cv::norm(c);
 
-        if (norma == 0 || normb == 0 || normc == 0) {
-            throw std::runtime_error("norma == 0 || normb == 0 || normc == 0");
-        }
-
-        a /= norma;
-        b /= normb;
-        c /= normc;
-
-        vector3d cos_vals;
-
-        cos_vals[0] = a.dot(c);
-        cos_vals[1] = a.dot(b);
-        cos_vals[2] = b.dot(c);
-
-        return cos_vals;
+    if (norma == 0 || normb == 0 || normc == 0) {
+        throw std::runtime_error("norma == 0 || normb == 0 || normc == 0");
     }
 
-    // one track corresponds to one 3d point
-    class Track {
-    public:
-        Track()
-        {
-            disabled = false;
-        }
+    a /= norma;
+    b /= normb;
+    c /= normc;
 
-        bool disabled;
-        std::vector<std::pair<int, int>> img_kpt_pairs;
-    };
+    vector3d cos_vals;
+
+    cos_vals[0] = a.dot(c);
+    cos_vals[1] = a.dot(b);
+    cos_vals[2] = b.dot(c);
+
+    return cos_vals;
+}
+
+// one track corresponds to one 3d point
+class Track {
+public:
+    Track()
+    {
+        disabled = false;
+    }
+
+    bool disabled;
+    std::vector<std::pair<int, int>> img_kpt_pairs;
+};
 
 }
 
@@ -190,7 +190,7 @@ TEST (SFM, ReconstructNViews) {
     using Matches = std::vector<cv::DMatch>;
     std::vector<std::vector<Matches>> matches(n_imgs);
     size_t ndone = 0;
-    #pragma omp parallel for
+#pragma omp parallel for
     for (int i = 0; i < n_imgs; ++i) {
         matches[i].resize(n_imgs);
         for (int j = 0; j < n_imgs; ++j) {
@@ -210,7 +210,7 @@ TEST (SFM, ReconstructNViews) {
             // Filtering matches GMS
             std::vector<DMatch> good_matches_gms;
             int inliers = phg::filterMatchesGMS(good_matches, keypoints[i], keypoints[j], imgs[i].size(), imgs[j].size(), good_matches_gms, false);
-            #pragma omp critical
+#pragma omp critical
             {
                 ++ndone;
                 if (inliers > 0) {
@@ -285,7 +285,7 @@ TEST (SFM, ReconstructNViews) {
         generateTiePointsCloud(tie_points, tracks, keypoints, imgs, aligned, cameras, ncameras, tie_points_and_cameras, tie_points_colors);
         phg::exportPointCloud(tie_points_and_cameras, std::string("data/debug/test_sfm_ba/") + DATASET_DIR + "/point_cloud_" + to_string(ncameras) + "_cameras.ply", tie_points_colors);
 
-//        runBA(tie_points, tracks, keypoints, cameras, ncameras, calib);
+        runBA(tie_points, tracks, keypoints, cameras, ncameras, calib);
         generateTiePointsCloud(tie_points, tracks, keypoints, imgs, aligned, cameras, ncameras, tie_points_and_cameras, tie_points_colors);
         phg::exportPointCloud(tie_points_and_cameras, std::string("data/debug/test_sfm_ba/") + DATASET_DIR + "/point_cloud_" + to_string(ncameras) + "_cameras_ba.ply", tie_points_colors);
     }
@@ -389,8 +389,25 @@ public:
 
         // Проецируем точку на фокальную плоскость матрицы (т.е. плоскость Z=фокальная длина), тем самым переводя в пиксели
 
+        T translation_point_global[3];
+        for (int i = 0; i < 3; ++i) {
+            translation_point_global[i] = point_global[i] - camera_extrinsics[i];
+        }
+
+        T result[3];
+        ceres::AngleAxisRotatePoint(&camera_extrinsics[3], translation_point_global,result);
+
+        T project_x = camera_intrinsics[2] *result[0] / result[2];
+        T project_y = camera_intrinsics[2] *result[1] / result[2];
+
 #if ENABLE_INSTRINSICS_K1_K2
         // k1, k2 - коэффициенты радиального искажения (radial distortion)
+
+        T r = project_x * project_x + project_y * project_y;
+        T distortion = 1. + camera_intrinsics[0] * r + camera_intrinsics[1] * r * r;
+
+        project_x *= distortion;
+        project_y *= distortion;
 #endif
 
         // Из координат когда точка (0, 0) - центр оптической оси
@@ -398,6 +415,11 @@ public:
         // cx, cy - координаты центра оптической оси (обычно это центр картинки, но часто он чуть смещен)
 
         // Теперь по спроецированным координатам не забудьте посчитать невязку репроекции
+        project_x += camera_intrinsics[3];
+        project_y += camera_intrinsics[4];
+
+        residuals[0] = project_x - (T)observed_x;
+        residuals[1] = project_y - (T)observed_y;
 
         return true;
         // TODO сверьте эту функцию с вашей реализацией проекции в src/phg/core/calibration.cpp (они должны совпадать)
@@ -431,7 +453,7 @@ void runBA(std::vector<vector3d> &tie_points,
 
     // внутренние калибровочные параметры камеры: [5] = {k1, k2, f, cx, cy}
     // TODO: преобразуйте calib в блок параметров камеры (ее внутренних характеристик) для оптимизации в BA
-    double camera_intrinsics[5];
+    double camera_intrinsics[5] = {calib.k1_, calib.k2_, calib.f_, calib.cx_ + calib.width_ *0.5,  calib.cy_ + calib.height_ *0.5};
     std::cout << "Before BA ";
     printCamera(camera_intrinsics);
 
@@ -493,7 +515,7 @@ void runBA(std::vector<vector3d> &tie_points,
             double* camera_extrinsics = cameras_extrinsics.data() + CAMERA_EXTRINSICS_NPARAMS * camera_id;
 
             // блоки параметров для 3D точек аллоцировать не обязательно, т.к. мы можем их оптимизировать напрямую в tie_points массиве
-            double* point3d_params = &(tie_points[i][0]);
+            double* point3d_params = tie_points[i].val;
 
             {
                 const double* params[3];
@@ -518,6 +540,7 @@ void runBA(std::vector<vector3d> &tie_points,
                                          camera_extrinsics,
                                          camera_intrinsics,
                                          point3d_params);
+
             } else {
                 reprojection_residuals_for_deletion.push_back(keypoint_reprojection_residual); // если мы не передали невязку в ceres-solver, то за его lifetime ответственны все еще мы
             }
@@ -528,11 +551,11 @@ void runBA(std::vector<vector3d> &tie_points,
         size_t ninls = cameras_inliers[camera_id];
         size_t nproj = cameras_nprojections[camera_id];
         std::cout << "    Camera #" << camera_id << " projections: " << to_percent(ninls, nproj) << "% inliers "
-        << "(" << ninls << "/" << nproj << ") with MSE=" << (cameras_inliers_mse[camera_id] / ninls) << std::endl;
+                  << "(" << ninls << "/" << nproj << ") with MSE=" << (cameras_inliers_mse[camera_id] / ninls) << std::endl;
     }
 
     if (ncameras < INTRINSICS_CALIBRATION_MIN_IMGS) {
-        // Полностью фиксируем внутренние калибровочные параметры камеры, т.к. 
+        // Полностью фиксируем внутренние калибровочные параметры камеры, т.к.
         problem.SetParameterBlockConstant(camera_intrinsics);
     } else {
         if (ncameras < INTRINSIC_K1_K2_MIN_IMGS) {
@@ -568,7 +591,11 @@ void runBA(std::vector<vector3d> &tie_points,
     std::cout << "After BA ";
     printCamera(camera_intrinsics);
     // TODO преобразуйте параметры камеры в обратную сторону, чтобы последующая резекция учла актуальное представление о пространстве:
-    // calib.* = camera_intrinsics[*];
+    calib.k1_ = camera_intrinsics[0];
+    calib.k2_ = camera_intrinsics[1];
+    calib.f_ = camera_intrinsics[2];
+    calib.cx_ = camera_intrinsics[3]  - 0.5*calib.width_;
+    calib.cy_ = camera_intrinsics[4] - 0.5*calib.height_;
 
     ASSERT_NEAR(calib.f_ , DATASET_F, 0.2 * DATASET_F);
     ASSERT_NEAR(calib.cx_, 0.0, 0.3 * calib.width());
@@ -643,6 +670,30 @@ void runBA(std::vector<vector3d> &tie_points,
             if (ENABLE_OUTLIERS_FILTRATION_COLINEAR && ENABLE_BA) {
                 // TODO выполните проверку случая когда два луча почти параллельны, чтобы не было странных точек улетающих на бесконечность (например чтобы угол был хотя бы 2.5 градуса)
                 // should_be_disabled = true;
+                if(!should_be_disabled){
+                    for (size_t ci_t = ci+1; ci_t < track.img_kpt_pairs.size(); ++ci_t) {
+                        int camera_t_id = track.img_kpt_pairs[ci_t].first;
+
+                        matrix3d R_t; vector3d camera_origin_t;
+                        phg::decomposeUndistortedPMatrix(R_t, camera_origin_t, cameras[camera_t_id]);
+
+                        vector3d ray1 = track_point - camera_origin;
+                        vector3d ray2 = track_point - camera_origin_t;
+                        double d1 = std::sqrt(ray1.ddot(ray1));
+                        double d2 = std::sqrt(ray2.ddot(ray2));
+
+                        ray1 /= d1;
+                        ray2 /= d2;
+
+                        double res = ray1.ddot(ray2);
+                        double angle = acos(res)*180.0/ 3.141592653589793;
+
+                        if(angle < 1.5)
+                        {
+                            should_be_disabled = true; break;
+                        }
+                    }
+                }
             }
 
             {
