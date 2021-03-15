@@ -37,6 +37,12 @@ cv::Vec3d phg::Calibration::project(const cv::Vec3d &point) const
 
     // TODO 11: добавьте учет радиальных искажений (k1_, k2_)
 
+    double r2 = x * x + y * y;
+    double r4 = r2 * r2;
+
+    x *= 1 + k1_ * r2 + k2_ * r4;
+    y *= 1 + k1_ * r2 + k2_ * r4;
+    // TODO height_ and width_ тут не нравятся ...
     x += cx_ + width_ * 0.5;
     y += cy_ + height_ * 0.5;
 
@@ -49,6 +55,17 @@ cv::Vec3d phg::Calibration::unproject(const cv::Vec2d &pixel) const
     double y = pixel[1] - cy_ - height_ * 0.5;
 
     // TODO 12: добавьте учет радиальных искажений, когда реализуете - подумайте: почему строго говоря это - не симметричная формула формуле из project? (но лишь приближение)
+    // есть ещё такой вариант, но сами авторы пишут, что ошибка высокая
+    // https://www.researchgate.net/publication/224599781_Lens_Distortion_Correction_Using_Ideal_Image_Coordinates
+
+    // Это не тот же самый R^2, что был. Если у нас "выпуклая" дисторсия, то таким "обратным"
+    // преобразованием мы "недоведем" точку до того места, где она была.
+    //  Если это была "вогнутая" дисторсия, то в результате останется немного выпуклая.
+    double r2_d = x * x + y * y;
+    double r4_d = r2_d * r2_d;
+
+    x /= 1 + k1_ * r2_d + k2_ * r4_d;
+    y /= 1 + k1_ * r2_d + k2_ * r4_d;
 
     x /= f_;
     y /= f_;
