@@ -67,7 +67,7 @@ TEST (CeresSolver, HelloWorld1) {
     std::cout << "x:     " << initial_x        << " -> " << cur_x << std::endl;
     std::cout << "f(x):  " << initial_residual << " -> " << final_residual << std::endl;
     std::cout << "f'(x): " << initial_jacobian << " -> " << final_jacobian << std::endl;
-    // TODO 1: почему результирующая производная не ноль? мы ведь должны были сойтись в минимуме функции 0.5*(10-x)^2
+    //  почему результирующая производная не ноль? мы ведь должны были сойтись в минимуме функции 0.5*(10-x)^2
     // У функции на строке 18 всегда производная -1
     ASSERT_NEAR(cur_x, 10.0, 1e-6);
 }
@@ -161,7 +161,6 @@ TEST (CeresSolver, HelloWorld2) {
     ceres::CostFunction* paraboloid_cost_function = new ceres::AutoDiffCostFunction<ResidualToParaboloid, 1, 3>
             (new ResidualToParaboloid(paraboloid_center, paraboloid_a, paraboloid_b));
 
-//    return; // TODO 2 удалите эту строку, затем
     // нарисуйте систему координат на бумажке чтобы найти координаты пересечения прямой и параболоида
     // (параболоид и прямые - простые, поэтому пересечь их довольно просто)
     // и подставьте найденные координаты эталонного ответа в массив:
@@ -230,9 +229,9 @@ TEST (CeresSolver, HelloWorld2) {
 
     for (int d = 0; d < 3; ++d) {
         EXPECT_NEAR(point[d], expected_point_solution[d], 1e-4);
-        // TODO 3: раскомментируйте^, почему он находит не то что ожидалось?
+        //раскомментируйте^, почему он находит не то что ожидалось?
 
-        // Да, там была странная остаточная функц
+        // Да, там была странная остаточная функция, изменила
 
         // либо мы набагали в коде, либо в аналитическом поиске правильного ответа на бумажке (проверьте вычисления на бумажке)
         // если бага в коде, то первые подозреваемые - две функции невязки (только там есть содержательный код)
@@ -263,7 +262,7 @@ public:
     template <typename T>
     bool operator()(const T* const line, T* residual) const {
         // Блок параметров - line=[a, b, c] - задает прямую вида ax+by+c=0
-        // TODO 5 посчитайте единственную невязку - расстояние от нашей точки-замера до текущего состояния прямой (для извлечения корня, помня про T=Jet, нужно использовать ceres::sqrt):
+        // посчитайте единственную невязку - расстояние от нашей точки-замера до текущего состояния прямой (для извлечения корня, помня про T=Jet, нужно использовать ceres::sqrt):
         // обратите внимание что расстояние лучше оставить знаковым, т.к. тогда эта невязка будет хорошо дифференцироваться при расстоянии около нуля
 
         residual[0] = ceres::abs(line[0] * samplePoint[0] + line[1] * samplePoint[1] + line[2]) /
@@ -280,7 +279,7 @@ double calcLineY(double x, const double* abc) {
 }
 
 double calcDistanceToLine2D(double x, double y, const double* abc) {
-    double dist = abc[0] * x + abc[1] * y + abc[2];
+    double dist = std::abs(abc[0] * x + abc[1] * y + abc[2]);
     dist /= sqrt(abc[0] * abc[0] + abc[1] * abc[1]);
     return dist;
 }
@@ -355,7 +354,6 @@ void evaluateLineFitting(double sigma, double &fitted_inliers_fraction, double &
                 1, // количество невязок (размер искомого residual массива переданного в функтор, т.е. размерность искомой невязки, у нас это просто расстояние до прямой)
                 3> // число параметров в каждом блоке параметров, у нас один блок параметров (искомая прямая) из трех ее параметров - a, b, c
                 (new PointObservationError(points[i]));
-//        return; // TODO 6 удалите этот return сразу после выполнения TODO 5
 
         ceres::LossFunction* loss;
         if (use_huber) {
@@ -385,7 +383,7 @@ void evaluateLineFitting(double sigma, double &fitted_inliers_fraction, double &
     // попробуем поправить параметры прямой умножением на единый коэффициент
     double coeff = 1;
     for (int i = 0; i < 3; ++i) {
-        if (line_params[i] != 0) {
+        if (ideal_line[i] != 0) {
             coeff = line_params[i] / ideal_line[i];
             break;
         }
@@ -393,26 +391,33 @@ void evaluateLineFitting(double sigma, double &fitted_inliers_fraction, double &
 
     for (int d = 0; d < 3; ++d) {
         ASSERT_NEAR(line_params[d], ideal_line[d] * coeff, threshold);
-        // TODO 7 расскоментируйте сверку найденной прямой и эталонной
+        //  расскоментируйте сверку найденной прямой и эталонной
         // почему они расходятся? как это можно решить? придумайте хотя бы два способа:
         // - пост-обработкой - как-то поправив параметры прямой перед сверкой (при этом не меняя ее положение в пространстве)
         // ^ коэффициенты прямой могут отличаться на множитель
         // - формулировкой задачи - можно сформулировать для ceres-solver задчау так чтобы избавиться от неоднозначности убрав степень свободы, т.е. описав прямую как-то иначе, как?
         // ^ достаточно зафиксировать один из коэффициентов, например, при y, и тогда получим y = k*x + b с двумя параметрами k и b
-        // TODO 7 поправьте тест так или иначе (хотя бы пост-процессингом)
+        //  поправьте тест так или иначе (хотя бы пост-процессингом)
     }
 
     // Оцениваем качество идеальной прямой
     double inliers_fraction, mse;
     evaluateLine(points, ideal_line, sigma, inliers_fraction, mse);
-//    ASSERT_GT(inliers_fraction, 0.99); // TODO 8 раскоментируйте, почему эта проверка падает? как поправить?
-//    ASSERT_LT(mse, 1.1 * sigma * sigma); // TODO 9 раскомментируйте, почему проверка падает? на каких тестах она падает, на каких проходит? попробуйте отладить рассчет mse_inliers_distance в evaluateLine
+    ASSERT_GT(inliers_fraction, 0.99 - outliers_fraction); //  раскоментируйте, почему эта проверка падает? как поправить?
+    // Падает на тестах FitLineNoiseAndOutliers, FitLineNoiseAndOutliersWithHuberLoss,
+    // так как мы установили 20% outliers в самих тестах, а просим 99% inliers. Так как мы раскидывали точки случайно,
+    // мы не знаем, сколько будет inliers_fraction на самом деле. Но должно быть не менее 80%
+    ASSERT_LT(mse, 1.1 * sigma * sigma); //  раскомментируйте, почему проверка падает? на каких тестах она падает, на каких проходит? попробуйте отладить рассчет mse_inliers_distance в evaluateLine
+    // падает на тестах FitLineNoiseAndOutliers и FitLineNoiseAndOutliersWithHuberLoss
+    // Она падает, потому что странно сравнивать 1.1 с накопленной ошибкой. Кажется, в evaluateLine всё впорядке с mse...
+    // а вот с calcDistanceToLine2D не совсем, пусть будет расстояние без знака
+
 
     // Оцениваем качество найденной прямой
     evaluateLine(points, line_params, sigma, inliers_fraction, mse);
     if (outliers_fraction == 0 || use_huber) {
-        // TODO 10 раскоментируйте обе проверки, почему они падают? в каких тестах? поправьте (в т.ч. подобно тому как было с ослаблением порога выше)
-        ASSERT_GT(inliers_fraction, 0.99);
+        // раскоментируйте обе проверки, почему они падают? в каких тестах? поправьте (в т.ч. подобно тому как было с ослаблением порога выше)
+        ASSERT_GT(inliers_fraction, 0.99 - outliers_fraction);
         ASSERT_LT(mse, 1.1 * sigma * sigma);
     }
 }
