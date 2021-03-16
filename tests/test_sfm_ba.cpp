@@ -27,7 +27,7 @@
 
 // TODO когда заработает при малом количестве фотографий - увеличьте это ограничение до 100 чтобы попробовать обработать
 // все фотографии (если же успешно будут отрабаывать только N фотографий - отправьте PR выставив здесь это N)
-#define NIMGS_LIMIT                           13 // сколько фотографий обрабатывать (можно выставить меньше чтобы ускорить экспериментирование, или в случае если весь датасет не выравнивается)
+#define NIMGS_LIMIT                           100 // сколько фотографий обрабатывать (можно выставить меньше чтобы ускорить экспериментирование, или в случае если весь датасет не выравнивается)
 #define INTRINSICS_CALIBRATION_MIN_IMGS       5 // начиная со скольки камер начинать оптимизировать внутренние параметры камеры (фокальную длинну и т.п.) - из соображений что "пока камер мало - наблюдений может быть недостаточно чтобы не сойтись к ложной внутренней модели камеры"
 
 #define ENABLE_INSTRINSICS_K1_K2              1 // TODO учитывать ли радиальную дисторсию - коэффициенты k1, k2 попробуйте с ним и и без saharov32, заметна ли разница?
@@ -397,7 +397,8 @@ public:
         T point_local_rotated[3];
         ceres::AngleAxisRotatePoint(rotation, point_local, point_local_rotated);
         // Проецируем точку на фокальную плоскость матрицы (т.е. плоскость Z=фокальная длина), тем самым переводя в пиксели
-        T k1 = camera_intrinsics[0], k2 = camera_intrinsics[1], f = camera_intrinsics[2], cx = camera_intrinsics[3], cy = camera_intrinsics[4];
+        T k1 = camera_intrinsics[0], k2 = camera_intrinsics[1],
+        f = camera_intrinsics[2], cx = camera_intrinsics[3], cy = camera_intrinsics[4];
 
         T x = f * point_local_rotated[0] / point_local_rotated[2];
         T y = f * point_local_rotated[1] / point_local_rotated[2];
@@ -407,7 +408,7 @@ public:
         T r2 = x * x + y * y;
         T r4 = r2 * r2;
         y *= 1.0 + k1 * r2 + k2 * r4;
-        y *= 1.0 + k1 * r2 + k2 * r4;
+        x *= 1.0 + k1 * r2 + k2 * r4;
 #endif
 
         // Из координат когда точка (0, 0) - центр оптической оси
@@ -682,15 +683,15 @@ void runBA(std::vector<vector3d> &tie_points,
                 vector3d this_vector = track_point - camera_origin;
                 vector3d other_vector;
 
-                for (int cii = 0; cii < track.img_kpt_pairs.size(); ++cii) {
-                    if (cii == ci) continue;
-                    other_vector = track_point - decomposition[cii].second;
-                    double cos = this_vector.dot(other_vector) / (cv::norm(this_vector) * cv::norm(other_vector));
-                    if (cos > threshold) {
-                        should_be_disabled = true;
-                        break;
+//                for (int cii = 0; cii < track.img_kpt_pairs.size(); ++cii) {
+                    if (ci != 0) {
+                        other_vector = track_point - decomposition[0].second;
+                        double cos = this_vector.dot(other_vector) / (cv::norm(this_vector) * cv::norm(other_vector));
+                        if (cos > threshold) {
+                            should_be_disabled = true;
+                        }
                     }
-                }
+
             }
 
             {
