@@ -21,9 +21,7 @@
 #include <ceres/rotation.h>
 #include <ceres/ceres.h>
 
-// TODO включите Bundle Adjustment (но из любопытства посмотрите как ведет себя реконструкция без BA например для saharov32 без BA)
-#define ENABLE_BA                             0
-// TODO и раскомментируйте вызов runBA ниже
+#define ENABLE_BA                             1
 
 // TODO когда заработает при малом количестве фотографий - увеличьте это ограничение до 100 чтобы попробовать обработать все фотографии (если же успешно будут отрабаывать только N фотографий - отправьте PR выставив здесь это N)
 #define NIMGS_LIMIT                           10 // сколько фотографий обрабатывать (можно выставить меньше чтобы ускорить экспериментирование, или в случае если весь датасет не выравнивается)
@@ -285,7 +283,7 @@ TEST (SFM, ReconstructNViews) {
         generateTiePointsCloud(tie_points, tracks, keypoints, imgs, aligned, cameras, ncameras, tie_points_and_cameras, tie_points_colors);
         phg::exportPointCloud(tie_points_and_cameras, std::string("data/debug/test_sfm_ba/") + DATASET_DIR + "/point_cloud_" + to_string(ncameras) + "_cameras.ply", tie_points_colors);
 
-//        runBA(tie_points, tracks, keypoints, cameras, ncameras, calib);
+        runBA(tie_points, tracks, keypoints, cameras, ncameras, calib);
         generateTiePointsCloud(tie_points, tracks, keypoints, imgs, aligned, cameras, ncameras, tie_points_and_cameras, tie_points_colors);
         phg::exportPointCloud(tie_points_and_cameras, std::string("data/debug/test_sfm_ba/") + DATASET_DIR + "/point_cloud_" + to_string(ncameras) + "_cameras_ba.ply", tie_points_colors);
     }
@@ -379,28 +377,47 @@ public:
                     const T* camera_intrinsics, // внутренние калибровочные параметры камеры: [5] = {k1, k2, f, cx, cy} (одни и те же для всех кадров, т.к. снято на одну и ту же камеру)
                     const T* point_global,      // 3D точка: [3]  = {x, y, z}
                     T* residuals) const {       // невязка:  [2]  = {dx, dy}
-        // TODO реализуйте функцию проекции, все нужно делать в типе T чтобы ceres-solver мог под него подставить как Jet (очень рекомендую посмотреть Jet.h - как класная статья из википедии!), так и double
-
+        T X0[3];
         // translation[3] - сдвиг в локальную систему координат камеры
+        const T* translation = camera_extrinsics;
+        for (int i = 0; i < 3; ++i) {
+            X0[i] = point_global[i] - translation[i];
+        }
 
         // rotation[3] - angle-axis rotation, поворачиваем точку point->p (чтобы перейти в локальную систему координат камеры)
         // подробнее см. https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
         // (P.S. у камеры всмысле вращения три степени свободы)
+        T X[3];
+        const T* rotation = camera_extrinsics + 3;
+        ceres::AngleAxisRotatePoint(rotation, X0, X);
 
         // Проецируем точку на фокальную плоскость матрицы (т.е. плоскость Z=фокальная длина), тем самым переводя в пиксели
-
+        T px[2];
+        T f = camera_intrinsics[2];
+        px[0] = X[0] / X[2] * f;
+        px[1] = X[1] / X[2] * f;
 #if ENABLE_INSTRINSICS_K1_K2
         // k1, k2 - коэффициенты радиального искажения (radial distortion)
+        T k1 = camera_intrinsics[0];
+        T k2 = camera_intrinsics[1];
+        T r2 = px[0] * px[0] + px[1] * px[1];
+        T coef = 1.0 + k1 * r2 + k2 * r2 * r2;
+        px[0] /= coef;
+        px[1] /= coef;
 #endif
 
         // Из координат когда точка (0, 0) - центр оптической оси
         // Переходим в координаты когда точка (0, 0) - левый верхний угол картинки
         // cx, cy - координаты центра оптической оси (обычно это центр картинки, но часто он чуть смещен)
-
+        T cx = camera_intrinsics[3];
+        T cy = camera_intrinsics[4];
+        px[0] += cx;
+        px[1] += cy;
         // Теперь по спроецированным координатам не забудьте посчитать невязку репроекции
+        residuals[0] = observed_x - px[0];
+        residuals[1] = observed_y - px[1];
 
         return true;
-        // TODO сверьте эту функцию с вашей реализацией проекции в src/phg/core/calibration.cpp (они должны совпадать)
     }
 protected:
     double observed_x;
@@ -430,8 +447,7 @@ void runBA(std::vector<vector3d> &tie_points,
     ASSERT_NEAR(calib.cy_, 0.0, 0.3 * calib.height());
 
     // внутренние калибровочные параметры камеры: [5] = {k1, k2, f, cx, cy}
-    // TODO: преобразуйте calib в блок параметров камеры (ее внутренних характеристик) для оптимизации в BA
-    double camera_intrinsics[5];
+    double camera_intrinsics[5] = {calib.k1_, calib.k2_, calib.f_, calib.cx_ + calib.width_ * 0.5, calib.cy_ + calib.height_ * 0.5};
     std::cout << "Before BA ";
     printCamera(camera_intrinsics);
 
@@ -567,8 +583,12 @@ void runBA(std::vector<vector3d> &tie_points,
 
     std::cout << "After BA ";
     printCamera(camera_intrinsics);
-    // TODO преобразуйте параметры камеры в обратную сторону, чтобы последующая резекция учла актуальное представление о пространстве:
-    // calib.* = camera_intrinsics[*];
+
+    calib.k1_ = camera_intrinsics[0];
+    calib.k2_ = camera_intrinsics[1];
+    calib.f_ = camera_intrinsics[2];
+    calib.cx_ = camera_intrinsics[3] - calib.width_ * 0.5;
+    calib.cy_ = camera_intrinsics[4] - calib.height_ * 0.5;
 
     ASSERT_NEAR(calib.f_ , DATASET_F, 0.2 * DATASET_F);
     ASSERT_NEAR(calib.cx_, 0.0, 0.3 * calib.width());
@@ -641,8 +661,15 @@ void runBA(std::vector<vector3d> &tie_points,
             }
 
             if (ENABLE_OUTLIERS_FILTRATION_COLINEAR && ENABLE_BA) {
-                // TODO выполните проверку случая когда два луча почти параллельны, чтобы не было странных точек улетающих на бесконечность (например чтобы угол был хотя бы 2.5 градуса)
-                // should_be_disabled = true;
+                int camera_id2 = track.img_kpt_pairs[ci].second;
+                matrix3d R2; vector3d camera_origin2;
+                phg::decomposeUndistortedPMatrix(R2, camera_origin2, cameras[camera_id2]);
+                vector3d v1 = track_point - camera_origin;
+                vector3d v2 = track_point - camera_origin2;
+                double cos = v1.dot(v2) / sqrt(v1.dot(v1)) / sqrt(v2.dot(v2));
+                if (abs(cos) > 0.999) {
+                    should_be_disabled = true;
+                }
             }
 
             {
