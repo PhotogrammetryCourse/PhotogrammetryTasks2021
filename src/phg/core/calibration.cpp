@@ -27,14 +27,11 @@ double found_extreme(double init_value, double k1, double k2, double n){
     int max_step = 30000;
     int step = 0;
 
-//    std::cout << "start: " << init_value  << " k1: "<< k1 << " k2: " << k2<< " n: " << n << std::endl;
     do{
         double dyx = (fx - fx1) / (x - x_prev2);
         double dyx2 = (fx1 - fx2) / (x_prev2 - x_prev3);
         double dyxx = (dyx - dyx2) /((x -  x_prev3));
 
-        //        if(std::fabs(fx - fx2) < 1e-6)
-        //            fx2 = fx + 1;
         x_n = x - dyx / dyxx;
 
         if(x_n < 0)
@@ -49,12 +46,6 @@ double found_extreme(double init_value, double k1, double k2, double n){
         step+=1;
     }
     while(std::fabs(fx) > 1);
-
-    //    if(x_n < 0)
-    {
-
-//        std::cout << "finish = " << x_n  << " fx= " << fx<< std::endl;
-    }
 
     return x_n;
 }
@@ -117,15 +108,16 @@ cv::Vec3d phg::Calibration::unproject(const cv::Vec2d &pixel) const
     {
         double R = x * x + y * y;
 
+        /*
+        Я решил искать значение радиуса численными методом. Возможно не всегда он правильно находит, потому что проверка на количество инлайнеров не проходят 
+*/
         double r = newton::found_extreme(std::sqrt(R), k1_,k2_, std::sqrt(R));
         r = std::fabs(r) < 1 ? R : r;
         double dist = 1. + k1_ * r + r * r * k2_;
-//                std::cout << "x = " << x << std::endl;
 
         x = x / dist;
         y = y / dist;
 
-//                std::cout << "x und = " << x << std::endl;
     }
 
     x /= f_;

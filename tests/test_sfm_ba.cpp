@@ -60,14 +60,14 @@
 //#define DATASET_F                    (1520.4 / DATASET_DOWNSCALE) // see temple47/README.txt about K-matrix (i.e. focal length = K11 from templeR_par.txt)
 
 // Специальный датасет прямо с Марса!
-/*
-#define DATASET_DIR                  "perseverance25"
-#define DATASET_DOWNSCALE            1
-#define DATASET_F                    4720.4
-// на этом датасете фотографии длиннофокусные, поэтому многие лучи почти колинеарны, поэтому этот фильтр подавляет все точки и третья камера не подвыравнивается
-#undef  ENABLE_OUTLIERS_FILTRATION_COLINEAR
-#define ENABLE_OUTLIERS_FILTRATION_COLINEAR 0
- */
+
+//#define DATASET_DIR                  "perseverance25"
+//#define DATASET_DOWNSCALE            2
+//#define DATASET_F                    (4720.4 / DATASET_DOWNSCALE)
+//// на этом датасете фотографии длиннофокусные, поэтому многие лучи почти колинеарны, поэтому этот фильтр подавляет все точки и третья камера не подвыравнивается
+//#undef  ENABLE_OUTLIERS_FILTRATION_COLINEAR
+//#define ENABLE_OUTLIERS_FILTRATION_COLINEAR 1
+
 // и в целом все плохо... у меня не получилось выравнять этот датасет нашим простым прототипом
 //________________________________________________________________________________
 
@@ -163,6 +163,9 @@ TEST (SFM, ReconstructNViews) {
 
             imgs.push_back(img);
             imgs_labels.push_back(img_name);
+            std::stringstream ss;
+//            ss << std::string("data/src/datasets/") + DATASET_DIR + "/"<< i << ".png";
+//            cv::imwrite(ss.str(), img);
         }
     }
 
@@ -218,7 +221,8 @@ TEST (SFM, ReconstructNViews) {
                 }
             }
 
-            matches[i][j] = good_matches_gms;
+            if(inliers > 20)
+                matches[i][j] = good_matches_gms;
         }
     }
 
