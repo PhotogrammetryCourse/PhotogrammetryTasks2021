@@ -5,6 +5,9 @@
 
 #include <fstream>
 
+#include <iostream>
+#include <sstream>
+
 #include <libutils/timer.h>
 #include <libutils/rasserts.h>
 #include <libutils/string_utils.h>
@@ -53,6 +56,9 @@ public:
     std::vector<phg::Track>                 tracks;
     std::vector<vector3d>                   tie_points;
 };
+
+
+
 
 
 Dataset loadDataset()
@@ -109,7 +115,7 @@ Dataset loadDataset()
 
     dataset.cameras_depth_max.resize(dataset.ncameras);
     dataset.cameras_depth_min.resize(dataset.ncameras);
-    #pragma omp parallel for schedule(dynamic, 1)
+//    #pragma omp parallel for schedule(dynamic, 1)
     for (ptrdiff_t ci = 0; ci < dataset.ncameras; ++ci) {
         double depth_min = std::numeric_limits<double>::max();
         double depth_max = 0.0;
@@ -134,6 +140,7 @@ Dataset loadDataset()
             // еще можно наспамить много project-unproject вызвов строчка за строчкой, чтобы при отладке не перезапускать программу
             // а просто раз за разом просматривать как проходит исполнение этих функций до понимания что пошло не так
             vector3d point_test = phg::unproject(px, dataset.calibration, phg::invP(dataset.cameras_P[ci]));
+//            std::cout << tie_point << " " << point_test << std::endl;
 
             vector3d diff = tie_point - point_test;
             double norm2 = phg::norm2(diff);
@@ -176,7 +183,7 @@ TEST (DepthMap, FirstStereoPair) {
     Dataset dataset = loadDataset();
     phg::PMDepthMapsBuilder builder(dataset.ncameras, dataset.cameras_imgs, dataset.cameras_imgs_grey, dataset.cameras_labels, dataset.cameras_P, dataset.calibration);
     
-    size_t ci = 2;
+    size_t ci = 4;
     size_t cameras_limit = 5;
 
     dataset.ncameras = cameras_limit;

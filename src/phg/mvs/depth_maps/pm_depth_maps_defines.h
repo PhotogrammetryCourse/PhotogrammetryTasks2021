@@ -5,7 +5,7 @@
 #define NO_COST                     1.0f
 #define GOOD_COST                   0.2f
 
-#define NITERATIONS                 5
+#define NITERATIONS                 25
 
 #define PROPAGATION_STEP            25
 
