@@ -157,6 +157,8 @@ void PMDepthMapsBuilder::refinement()
     timer t;
     verbose_cout << "Iteration #" << iter << "/" << NITERATIONS << ": refinement..." << std::endl;
 
+    // глобальная статистика по гипотезам
+
 #pragma omp parallel for schedule(dynamic, 1)
     for (ptrdiff_t j = 0; j < height; ++j) {
         for (ptrdiff_t i = 0; i < width; ++i) {
@@ -184,12 +186,9 @@ void PMDepthMapsBuilder::refinement()
                 //  - r.nextf(...)
                 //  - ref_depth_min, ref_depth_max
                 //  - randomNormalObservedFromCamera - поможет создать нормаль которая гарантированно смотрит на нас
-                dr = r.nextf(dp * 0.5f, dp * 1.5);
+                dr = r.nextf(ref_depth_min, ref_depth_max);
 
-                nr = cv::normalize(n0 + randomNormalObservedFromCamera(cameras_RtoWorld[ref_cam], r) * 0.5); // TODO 105: сделайте так чтобы отклонение было тем меньше, чем номер итерации ближе к NITERATIONS, улучшило ли это результат?
-
-                dr = std::max(ref_depth_min, std::min(ref_depth_max, dr));
-
+                nr = cv::normalize(randomNormalObservedFromCamera(cameras_RtoWorld[ref_cam], r)); // TODO 105: сделайте так чтобы отклонение было тем меньше, чем номер итерации ближе к NITERATIONS, улучшило ли это результат?
             }
 
             float    best_depth  = d0;
@@ -201,6 +200,8 @@ void PMDepthMapsBuilder::refinement()
 
             float depths[3] = {d0, dr, dp};
             vector3f normals[3] = {n0, nr, np};
+
+            std::vector<int> costs_hist(9,0);
 
             // перебираем все комбинации этих гипотез, т.е. 3х3=9 вариантов
             for (size_t hi = 0; hi < 3*3; ++hi) {
@@ -224,7 +225,9 @@ void PMDepthMapsBuilder::refinement()
                 if (total_cost < best_cost) {
                     best_depth  = d;
                     best_normal = n;
-                    best_cost   = total_cost; // TODO 206: добавьте подсчет статистики, какая комбинация гипотез чаще всего побеждает? есть ли комбинации на которых мы можем сэкономить? а какие гипотезы при refinement рассматривает например Colmap?
+                    best_cost   = total_cost; // TODO 206: добавьте подсчет статистики,
+                    // какая комбинация гипотез чаще всего побеждает? есть ли комбинации на которых мы можем сэкономить?
+                    // а какие гипотезы при refinement рассматривает например Colmap? - https://github.com/colmap/colmap/blob/5ef013f5764cbda188ab43fb13d2e92b0ec89f85/src/mvs/patch_match_cuda.cu#L1012
                 }
             }
 
@@ -319,7 +322,7 @@ void PMDepthMapsBuilder::propagation()
                 tryToPropagateDonor(i + 1*PROPAGATION_STEP, j + 0*PROPAGATION_STEP, chessboard_pattern_step, hypos_depth, hypos_normal, hypos_cost);
                 tryToPropagateDonor(i + 0*PROPAGATION_STEP, j + 1*PROPAGATION_STEP, chessboard_pattern_step, hypos_depth, hypos_normal, hypos_cost);
 
-                // TODO 201 переделайте чтобы было как в ACMH:
+                // TODO 201 переделайте чтобы было как в ACMH: 2:09:00 - время в ролике
                 // TODO 202 - паттерн донорства
                 // TODO 203 - логика про "берем 8 лучших по их личной оценке - по их личному cost" и только их примеряем уже на себя для рассчета cost в нашей точке
                 // TODO 301 - сделайте вместо наивного переноса depth+normal в наш пиксель - логику про "пересекли луч из нашего пикселя с плоскостью которую задает донор-сосед" и оценку cost в нашей точке тогда можно провести для более релевантной точки-пересечения
@@ -414,6 +417,8 @@ float PMDepthMapsBuilder::estimateCost(ptrdiff_t i, ptrdiff_t j, double d, const
             // TODO 205: замените этот наивный вариант nearest neighbor сэмплирования текстуры на билинейную интерполяцию (учтите что центр пикселя - .5 после запятой)
             ptrdiff_t u = x;
             ptrdiff_t v = y;
+
+            // интерполировать значение яркости в точки (u,v)
 
             // TODO 108: добавьте проверку "попали ли мы в камеру номер neighb_cam?" если не попали - возвращаем NO_COST
 
