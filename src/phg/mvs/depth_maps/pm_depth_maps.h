@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pm_depth_maps_defines.h"
 #include <vector>
 
 #include <opencv2/core.hpp>
@@ -60,14 +61,23 @@ namespace phg {
 
     protected:
 
+        struct hypothesis_t {
+            float depth;
+            vector3f normal;
+            float cost;
+
+            bool operator<(const hypothesis_t &b) {
+                return cost != NO_COST && (b.cost == NO_COST || cost < b.cost);
+            }
+        };
+
         void refinement();
 
         void propagation();
 
         float estimateCost(ptrdiff_t i, ptrdiff_t j, double d, const vector3d &global_normal, size_t neighb_cam);
         float avgCost(std::vector<float> &costs);
-        void  tryToPropagateDonor(ptrdiff_t ni, ptrdiff_t nj, int chessboard_pattern_step,
-                std::vector<float> &hypos_depth, std::vector<vector3f> &hypos_normal, std::vector<float> &hypos_cost);
+        hypothesis_t tryToPropagateDonor(ptrdiff_t ni, ptrdiff_t nj, int chessboard_pattern_step);
 
         void printCurrentStats();
         void debugCurrentPoints(const std::string &label);
