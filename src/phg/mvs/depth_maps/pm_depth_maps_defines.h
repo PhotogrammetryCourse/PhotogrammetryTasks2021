@@ -5,7 +5,7 @@
 #define NO_COST                     1.0f
 #define GOOD_COST                   0.2f
 
-#define NITERATIONS                 25
+#define NITERATIONS                 10
 
 #define PROPAGATION_STEP            25
 
@@ -22,6 +22,7 @@
 #endif
 
 #define DEBUG_DIR                   "data/debug/test_depth_maps_pm/iterations_points/"
+#define OUTPUT_DEBUG_DIR
 
 // TODO 208: что если попробовать другой PROPAGATION_STEP?
 // TODO 209: что если попробовать в PROPAGATION брать 8 из 20 лучших с точки зрения их cost-ов, и уже затем выбирать из них лучшего с учетом примерки на себя?

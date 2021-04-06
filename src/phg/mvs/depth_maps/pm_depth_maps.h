@@ -35,6 +35,7 @@ namespace phg {
         {
             cameras_PtoWorld.resize(ncameras);
             cameras_RtoWorld.resize(ncameras);
+            cameras_O.resize(ncameras);
 
             rassert(cameras_imgs.size() == ncameras, 2815841251015);
             rassert(cameras_imgs_grey.size() == ncameras, 2815841251014);
@@ -50,6 +51,8 @@ namespace phg {
 
                 cameras_PtoWorld[ci] = invP(cameras_PtoLocal[ci]);
                 cameras_RtoWorld[ci] = extractR(cameras_PtoWorld[ci]);
+
+                cameras_O[ci] = cameras_PtoWorld[ci]/*.col(3)*/ * cv::Vec4d(0.,0.,0.,1.);
             }
         }
 
@@ -80,7 +83,7 @@ namespace phg {
         const std::vector<matrix34d>        &cameras_PtoLocal; // матрица переводящая глобальную систему координат мира в систему координат i-ой камеры (смотрящей по оси +Z)
         std::vector<matrix34d>               cameras_PtoWorld; // матрица переводящая локальную систему координат i-ой камеры (смотрящей по оси +Z) в глобальную систему координат мира
         std::vector<matrix3d>                cameras_RtoWorld; // матрица поворота из локальной системы координат i-ой камеры (смотрящей по оси +Z) в нлобальную систему координат мира
-
+        std::vector<vector3d>               cameras_O;
         const phg::Calibration              &calibration;
         
         unsigned int                        ref_cam; // индекс референсной камеры (для которой мы строим карту глубины)
@@ -92,6 +95,8 @@ namespace phg {
         cv::Mat                             cost_map;
         
         int                                 iter; // номер итерации
+
+        std::vector<int> stats_hypothesis = std::vector<int>(9,0);
 
         
     };

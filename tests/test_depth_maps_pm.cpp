@@ -183,8 +183,8 @@ TEST (DepthMap, FirstStereoPair) {
     Dataset dataset = loadDataset();
     phg::PMDepthMapsBuilder builder(dataset.ncameras, dataset.cameras_imgs, dataset.cameras_imgs_grey, dataset.cameras_labels, dataset.cameras_P, dataset.calibration);
     
-    size_t ci = 4;
-    size_t cameras_limit = 5;
+    size_t ci = 2;
+    size_t cameras_limit = 10;
 
     dataset.ncameras = cameras_limit;
     cv::Mat depth_map, normal_map, cost_map;
