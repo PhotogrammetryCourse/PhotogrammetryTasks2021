@@ -5,7 +5,6 @@
 
 #include "pm_fast_random.h"
 #include "pm_geometry.h"
-#include "pm_depth_maps_defines.h"
 
 
 namespace phg {
@@ -65,6 +64,7 @@ namespace phg {
     }
 
     void PMDepthMapsBuilder::print_iter_stat() {
+        if (iter > NITERATIONS) return;
         auto &stat = hstat[iter];
         std::vector<int> index(stat.size(), 0);
         for (int i = 0; i != index.size(); i++) {
@@ -138,6 +138,7 @@ namespace phg {
 
                     // 2) случайной пертурбации текущей гипотезы (мутация и уточнение того что уже смогли найти)
                     float adaptive_delta = 0.5f * iter / NITERATIONS;
+                    // адаптивное отколнение сильно не изменило результат
                     dp = r.nextf(d0 * (0.3f + adaptive_delta), d0 * (1.7f - adaptive_delta)); // TODO 104: сделайте так чтобы отклонение было тем меньше, чем номер итерации ближе к NITERATIONS, улучшило ли это результат?
                     np = cv::normalize(n0 + randomNormalObservedFromCamera(cameras_RtoWorld[ref_cam], r) * 0.5); // TODO 105: сделайте так чтобы отклонение было тем меньше, чем номер итерации ближе к NITERATIONS, улучшило ли это результат?
 
@@ -189,10 +190,7 @@ namespace phg {
                     }
                 }
                 if (best_hi != -1) {
-                    // iter best
                     hstat[iter][best_hi] ++;
-                    // total best
-                    hstat[NITERATIONS][best_hi] ++;
                 }
 
                 depth_map.at<float>(j, i) = best_depth;

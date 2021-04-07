@@ -51,7 +51,7 @@ namespace phg {
                 cameras_PtoWorld[ci] = invP(cameras_PtoLocal[ci]);
                 cameras_RtoWorld[ci] = extractR(cameras_PtoWorld[ci]);
             }
-            hstat = std::vector<std::vector<int>>(NITERATIONS, std::vector<int>(9, 0));
+            hstat = std::vector<std::vector<int>>(NITERATIONS + 1, std::vector<int>(9, 0));
         }
 
         void buildDepthMap(
