@@ -280,8 +280,21 @@ namespace phg {
                     if (best_depth == NO_DEPTH) {
                         best_cost = NO_COST;
                     }
+
+                    int n = std::min(size_t(8), hypos_cost.size());
+                    std::vector<int> bestid = std::vector<int>(hypos_cost.size(), 0);
+                    for (int bi = 0; bi < hypos_cost.size(); ++bi) {
+                        bestid[bi] = bi;
+                    }
+
+                    std::sort(bestid.begin(), bestid.end(), [&hypos_cost](int bi, int bj) {
+                        return hypos_cost[bi] < hypos_cost[bj];
+                    });
+
+                    bestid.resize(n);
     
-                    for (size_t hi = 0; hi < hypos_depth.size(); ++hi) {
+                    for (size_t bi = 0; bi < bestid.size(); ++bi) {
+                        size_t hi = bestid[bi];
                         // эту гипотезу мы сейчас рассматриваем как очередного кандидата
                         float    d = hypos_depth[hi];
                         vector3f n = hypos_normal[hi];
@@ -299,7 +312,7 @@ namespace phg {
     
                         // объединяем cost-ы всех соседей в одну общую оценку качества текущей гипотезы (условно "усредняем")
                         float total_cost = avgCost(costs);
-    
+
                         // WTA (winner takes all)
                         if (total_cost < best_cost) {
                             best_depth  = d;
@@ -362,15 +375,22 @@ namespace phg {
                 double y = neighb_proj[1];
 
                 // TODO 205: замените этот наивный вариант nearest neighbor сэмплирования текстуры на билинейную интерполяцию (учтите что центр пикселя - .5 после запятой)
-                ptrdiff_t u = x;
-                ptrdiff_t v = y;
+                ptrdiff_t u = floor(x);
+                ptrdiff_t v = floor(y);
 
                 // TODO 108: добавьте проверку "попали ли мы в камеру номер neighb_cam?" если не попали - возвращаем NO_COST
-                if (u < 0 or u >= cameras_imgs_grey[neighb_cam].cols or v < 0 or v >= cameras_imgs_grey[neighb_cam].rows) {
+                if (u < 0 || u >= cameras_imgs_grey[neighb_cam].cols or v < 0 || v >= cameras_imgs_grey[neighb_cam].rows) {
                     return NO_COST;
                 }
 
-                float intensity = cameras_imgs_grey[neighb_cam].at<unsigned char>(v, u) / 255.0f;
+                double dx = x - u;
+                double dy = y - v;
+                float i0 = cameras_imgs_grey[neighb_cam].at<unsigned char>(v, u) * (1. - dx) * (1 - dy);
+                float i1 = cameras_imgs_grey[neighb_cam].at<unsigned char>(v + 1, u) * dy * (1. - dx);
+                float i2 = cameras_imgs_grey[neighb_cam].at<unsigned char>(v, u + 1) * (1 - dy) * dx;
+                float i3 = cameras_imgs_grey[neighb_cam].at<unsigned char>(v + 1, u + 1) * dy * dx;
+
+                float intensity = (i0 + i1 + i2 + i3) / 255.0f;
                 patch1.push_back(intensity);
             }
         }
