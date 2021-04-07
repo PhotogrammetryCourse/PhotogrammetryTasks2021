@@ -263,7 +263,12 @@ namespace phg {
 
                     std::vector<float> cost_donors;
                     for (int k = 0; k < donors.size(); ++k) {
-                        donors[k].first = cost_map.at<float>(donors[k].second.first, donors[k].second.second);
+                        int u = donors[k].second.first;
+                        int v = donors[k].second.second;
+                        if (u < 0 || u >= width || v < 0 || v >= height)
+                            donors[k].first = NO_COST;
+                        else
+                            donors[k].first = cost_map.at<float>(u, v);
                     }
                     // логика про "берем 8 лучших по их личной оценке - по их личному cost" и только их примеряем уже на себя для рассчета cost в нашей точке
                     // у меня с 8 получилось не очень хорошо, поэтому взяла 12 (из 24)
