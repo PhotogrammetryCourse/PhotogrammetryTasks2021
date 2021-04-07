@@ -35,6 +35,7 @@ namespace phg {
         {
             cameras_PtoWorld.resize(ncameras);
             cameras_RtoWorld.resize(ncameras);
+            cameras_0.resize(ncameras);
 
             rassert(cameras_imgs.size() == ncameras, 2815841251015);
             rassert(cameras_imgs_grey.size() == ncameras, 2815841251014);
@@ -49,6 +50,7 @@ namespace phg {
                 rassert(cameras_imgs_grey[ci].channels() == 1, 23812989251035);
 
                 cameras_PtoWorld[ci] = invP(cameras_PtoLocal[ci]);
+                cameras_0[ci] = cameras_PtoWorld[ci] * vector4d(0.0, 0.0, 0.0, 1.0);
                 cameras_RtoWorld[ci] = extractR(cameras_PtoWorld[ci]);
             }
         }
@@ -80,6 +82,7 @@ namespace phg {
         const std::vector<matrix34d>        &cameras_PtoLocal; // матрица переводящая глобальную систему координат мира в систему координат i-ой камеры (смотрящей по оси +Z)
         std::vector<matrix34d>               cameras_PtoWorld; // матрица переводящая локальную систему координат i-ой камеры (смотрящей по оси +Z) в глобальную систему координат мира
         std::vector<matrix3d>                cameras_RtoWorld; // матрица поворота из локальной системы координат i-ой камеры (смотрящей по оси +Z) в нлобальную систему координат мира
+        std::vector<vector3d>                cameras_0;
 
         const phg::Calibration              &calibration;
         
