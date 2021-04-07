@@ -21,7 +21,7 @@
 	#define verbose_cout if (true) {} else std::cout
 #endif
 
-#define DEBUG_DIR                   "data/debug/test_depth_maps_pm/iterations_points/"
+#define DEBUG_DIR                   "data/debug/test_depth_maps_pm/iterations_points_bilin/"
 
 // TODO 208: что если попробовать другой PROPAGATION_STEP?
 // TODO 209: что если попробовать в PROPAGATION брать 8 из 20 лучших с точки зрения их cost-ов, и уже затем выбирать из них лучшего с учетом примерки на себя?

@@ -9,7 +9,7 @@
 #include <phg/sfm/defines.h>
 #include <phg/sfm/ematrix.h>
 #include <phg/core/calibration.h>
-
+#include "pm_depth_maps_defines.h"
 
 namespace phg {
 
@@ -51,6 +51,7 @@ namespace phg {
                 cameras_PtoWorld[ci] = invP(cameras_PtoLocal[ci]);
                 cameras_RtoWorld[ci] = extractR(cameras_PtoWorld[ci]);
             }
+            hstat = std::vector<std::vector<int>>(NITERATIONS, std::vector<int>(9, 0));
         }
 
         void buildDepthMap(
@@ -63,6 +64,8 @@ namespace phg {
         void refinement();
 
         void propagation();
+
+        void print_iter_stat();
 
         float estimateCost(ptrdiff_t i, ptrdiff_t j, double d, const vector3d &global_normal, size_t neighb_cam);
         float avgCost(std::vector<float> &costs);
@@ -79,7 +82,7 @@ namespace phg {
 
         const std::vector<matrix34d>        &cameras_PtoLocal; // матрица переводящая глобальную систему координат мира в систему координат i-ой камеры (смотрящей по оси +Z)
         std::vector<matrix34d>               cameras_PtoWorld; // матрица переводящая локальную систему координат i-ой камеры (смотрящей по оси +Z) в глобальную систему координат мира
-        std::vector<matrix3d>                cameras_RtoWorld; // матрица поворота из локальной системы координат i-ой камеры (смотрящей по оси +Z) в нлобальную систему координат мира
+        std::vector<matrix3d>                cameras_RtoWorld; // матрица поворота из локальной системы координат i-ой камеры (смотрящей по оси +Z) в глобальную систему координат мира
 
         const phg::Calibration              &calibration;
         
@@ -93,7 +96,7 @@ namespace phg {
         
         int                                 iter; // номер итерации
 
-        
+        std::vector<std::vector<int>>       hstat;
     };
     
 }
