@@ -62,8 +62,9 @@ void MinCutModelBuilder::appendToTriangulation(unsigned int camera_id, const vec
         } else {
             // проверяем насколько ближайшая точка далеко
             vector3d np = from_cgal_point(nearest_vertex->point());
-            // TODO 2001 appendToTriangulation(): реализуйте нормальную проверку объединять ли точку с уже добавленной ранее (с учетом r и MERGE_THRESHOLD_RADIUS_KOEF)
-            to_merge = false;
+            // TODO 2001 - done appendToTriangulation(): реализуйте нормальную проверку объединять ли точку с уже добавленной ранее (с учетом r и MERGE_THRESHOLD_RADIUS_KOEF)
+            if (cv::norm(p, np) < MERGE_THRESHOLD_RADIUS_KOEF)
+                to_merge = true;
         }
 
         vertex_info_t p_info(camera_id, color);
@@ -322,7 +323,7 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
     size_t nrays = 0;
     for (auto vi = proxy->triangulation.all_vertices_begin(); vi != proxy->triangulation.all_vertices_end(); ++vi) {
         if (vi->info().camera_ids.size() == 0) {
-            // TODO 2004 подумайте и напишите тут какие вершины бывают без камер вообще? почему мы их пропускаем? что и почему случится если убрать это пропускание?
+            // TODO 2004 - done подумайте и напишите тут какие вершины бывают без камер вообще? почему мы их пропускаем? что и почему случится если убрать это пропускание?
             continue;
         }
 
@@ -403,7 +404,7 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
                     rassert(next_cell == proxy->triangulation.locate(to_cgal_point(camera_center)), 238791248120328); // проверяем это
                     // добавляем пропускной способности из истока к ячейке с камерой (к тетрагедрончику содержащему точку центра камеры)
                     next_cell->info().s_capacity += LAMBDA_IN;
-                    // TODO 2005 изменится ли что-то если сильно увеличить пропускные способности ребер от истока? (т.е. сделать пропускную способность из истока равной бесконечности?)
+                    // TODO 2005 - done изменится ли что-то если сильно увеличить пропускные способности ребер от истока? (т.е. сделать пропускную способность из истока равной бесконечности?)
                 }
             }
             avg_triangles_intersected_per_ray += steps;
@@ -482,11 +483,24 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
 
             cv::Vec3i face;
 
-            // TODO 2002 добавьте проверку - не опирается ли треугольник на одну из фиктивных вершин (лежащих на гранях вспомогательного bounding box), можете для этого использовать bb_min и bb_max, или добавьте явный флаг в каждую вершину
+            // TODO 2002 - done добавьте проверку - не опирается ли треугольник на одну из фиктивных вершин (лежащих на гранях вспомогательного bounding box), можете для этого использовать bb_min и bb_max, или добавьте явный флаг в каждую вершину
             // иначе говоря сделайте так чтобы такие треугольники не добавлялись в результирующую модель эти большие красные треугольники
 
+            bool fake = false;
+            int indexes[] = {
+                    1, 2, 3,
+                    0, 3, 2,
+                    0, 1, 3,
+                    0, 2, 1
+            };
+
             for (int v_index = 1; v_index <= 3; ++v_index) {
-                auto vi = ci->vertex((i + v_index) % 4);
+                auto vi = ci->vertex(indexes[i * 3 + v_index - 1]);
+                for (int i = 0; i < 3; i++) {
+                    if (std::abs(vi->point()[i] - bb_min[i]) < 10e-4 || std::abs(vi->point()[i] - bb_min[i]) < 10e-4) {
+                        fake = true;
+                    }
+                }
                 size_t& surface_vertex_id = vi->info().vertex_on_surface_id;
                 if (surface_vertex_id == VERTEX_NOT_ON_SURFACE_RESULT) {
                     surface_vertex_id = mesh_nvertices++;
@@ -494,11 +508,13 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
                 face[v_index - 1] = surface_vertex_id;
             }
 
-            // TODO 2003 некоторые треугольники выглядят темными в результирующей модели, проблема уходит если выключить в MeshLab освещение (кнопка желтой лампочка - Light on/off) которое учитывает нормаль, которая строится с учетом порядка вершин треугольника (по часовой стрелке или против)
+            // TODO 2003 - done некоторые треугольники выглядят темными в результирующей модели, проблема уходит если выключить в MeshLab освещение (кнопка желтой лампочка - Light on/off) которое учитывает нормаль, которая строится с учетом порядка вершин треугольника (по часовой стрелке или против)
             // иначе говоря оказывается что порядок обхода вершин в треугольнике не всегда корректен
             // подумайте чем это вызывано и поправьте (лучше всего это делать посматривая на картинку 'Figure 44.1' в документации https://doc.cgal.org/latest/Triangulation_3/index.html )
 
-            mesh_faces.push_back(face);
+            if (!fake) {
+                mesh_faces.push_back(face);
+            }
         }
     }
 
