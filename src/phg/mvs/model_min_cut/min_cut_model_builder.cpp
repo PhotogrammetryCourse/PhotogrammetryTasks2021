@@ -63,7 +63,11 @@ void MinCutModelBuilder::appendToTriangulation(unsigned int camera_id, const vec
             // проверяем насколько ближайшая точка далеко
             vector3d np = from_cgal_point(nearest_vertex->point());
             // TODO 2001 appendToTriangulation(): реализуйте нормальную проверку объединять ли точку с уже добавленной ранее (с учетом r и MERGE_THRESHOLD_RADIUS_KOEF)
-            to_merge = false;
+            if (cv::norm(np - p)/r < MERGE_THRESHOLD_RADIUS_KOEF) {
+                to_merge = true;
+            } else {
+                to_merge = false;
+            }
         }
 
         vertex_info_t p_info(camera_id, color);
@@ -323,6 +327,26 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
     for (auto vi = proxy->triangulation.all_vertices_begin(); vi != proxy->triangulation.all_vertices_end(); ++vi) {
         if (vi->info().camera_ids.size() == 0) {
             // TODO 2004 подумайте и напишите тут какие вершины бывают без камер вообще? почему мы их пропускаем? что и почему случится если убрать это пропускание?
+            //Чисто по коду ничего особо не должно произойти.  Дальше у нас идет цикл по камерам, камер здесь нет, вот и по циклу итерироваться не будем.
+            /*
+             * std::cout << "Without camers: " << vi->point()[0] << " " << vi->point()[1] << " " << vi->point()[2] <<"\n";
+             * std::cout << "bb_min" << bb_min[0] << " " << bb_min[1] << " " << bb_min[2] << "\n";
+             * std::cout << "bb_max" << bb_max[0] << " " << bb_max[1] << " " << bb_max[2] << "\n";
+             *
+             * Without camers: -23.7608 2.2851 -27.4715
+             * Without camers: -23.7608 2.2851 -27.4715
+             * Without camers: 0.568351 -24.1847 21.319
+             * ...
+             * bb_min-23.7608 -24.1847 -27.4715
+             * bb_max24.8975 28.7548 21.319
+             */
+
+            //Судя по выводу точки без камер это те ребята, которы лежат на bounding box. Сейчас посмотрю в какой момент и зачем мы их добалвяем.
+            //При этом от запуска к запуску количество точек остается таким же, но при этом bb постоянно меняется.
+            //MinCutModelBuilder::insertBoundingBoxVertices вот в этой функции эти ребята добавляются
+            //Добавляем потому что не хотим с бесконечностями работать.
+
+            //Хотя вероятно в этой функции проблема возникнет. fetchVertexBoundingFacets. В ней мы хотим выбрать шарик со всех сторон для текцщей точки. А у нас вершины крайние и шарика для неё как-то не хорошо искать.
             continue;
         }
 
@@ -404,6 +428,11 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
                     // добавляем пропускной способности из истока к ячейке с камерой (к тетрагедрончику содержащему точку центра камеры)
                     next_cell->info().s_capacity += LAMBDA_IN;
                     // TODO 2005 изменится ли что-то если сильно увеличить пропускные способности ребер от истока? (т.е. сделать пропускную способность из истока равной бесконечности?)
+                    // Чисто логически не особо должно. То есть таким образом мы запрещаем этим ребрам участвовать в минимальном разрезе. В моем представление они и не должны
+                    // участвовать в минимальном разрезе.
+                    // Де-факто результат поменялся. А именно например в 0 модельке у меня  памятник стал соеденен с домиком.
+                    // Условно если выкрутить в +inf, то таким образом мы говорим, что у нас вообще-то поверхность свзяная в которой никаки треугольники пропускать нельзя.
+                    // В обном месте земля, а иначе какая-та большая соеденнеая хреновина. 
                 }
             }
             avg_triangles_intersected_per_ray += steps;
@@ -485,6 +514,21 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
             // TODO 2002 добавьте проверку - не опирается ли треугольник на одну из фиктивных вершин (лежащих на гранях вспомогательного bounding box), можете для этого использовать bb_min и bb_max, или добавьте явный флаг в каждую вершину
             // иначе говоря сделайте так чтобы такие треугольники не добавлялись в результирующую модель эти большие красные треугольники
 
+            bool bxPoint = false;
+            for (int v_index = 1; v_index <= 3; ++v_index) {
+                auto vi = ci->vertex((i + v_index) % 4);
+                for (int crd = 0; crd < 3; ++crd) {
+                    if (vi->point()[crd] - 0.01 <= bb_min[crd] or vi->point()[crd] + 0.01 >= bb_max[crd]) {
+                        bxPoint = true;
+                        continue;
+                    }
+                }
+            }
+
+            if (bxPoint) {
+                continue;
+            }
+
             for (int v_index = 1; v_index <= 3; ++v_index) {
                 auto vi = ci->vertex((i + v_index) % 4);
                 size_t& surface_vertex_id = vi->info().vertex_on_surface_id;
@@ -492,6 +536,10 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
                     surface_vertex_id = mesh_nvertices++;
                 }
                 face[v_index - 1] = surface_vertex_id;
+            }
+
+            if (i == 1 || i == 3) {
+                std::swap(face[0], face[2]);
             }
 
             // TODO 2003 некоторые треугольники выглядят темными в результирующей модели, проблема уходит если выключить в MeshLab освещение (кнопка желтой лампочка - Light on/off) которое учитывает нормаль, которая строится с учетом порядка вершин треугольника (по часовой стрелке или против)
