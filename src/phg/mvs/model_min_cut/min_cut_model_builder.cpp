@@ -70,7 +70,7 @@ void MinCutModelBuilder::appendToTriangulation(unsigned int camera_id, const vec
             }
         }
 
-        vertex_info_t p_info(camera_id, color);
+        vertex_info_t p_info(camera_id, color, r);
         if (to_merge) {
             nearest_vertex->info().merge(p_info);
         } else {
@@ -371,13 +371,36 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
                 // и теперь среди этих треугольников мы ищем тот что пересекается лучем идущим глубже за точку на поверхности
                 // этот треугольник - это грань искомой ячейки триангуляции внутри поверхности
                 std::vector<cgal_facet_t> cur_facets = facets_around_point0;
-                const cgal_facet_t intersected_facet = chooseIntersectedFacet(proxy->triangulation, point0, point0 + ray_from_camera, cur_facets, false);
-                rassert(intersected_facet != cgal_facet_t(), 2378213120305);
+                double prev_distance = 0.0;
+                auto radius0 = vi->info().radius;
 
-                // это ячейка триангуляции лежащая под поверхностью (т.е. сразу за вершиной)
-                const cell_handle_t cell_after_point = intersected_facet.first;
-                // добавляем пропускной способности из этой ячейки (из этого тетрагедрончика) к стоку
-                cell_after_point->info().t_capacity += LAMBDA_IN;
+                size_t steps = 0;
+                while (cur_facets.size() > 0) {
+                    const cgal_facet_t intersected_facet = chooseIntersectedFacet(proxy->triangulation, point0, point0 + ray_from_camera, cur_facets, false);
+                    rassert(intersected_facet != cgal_facet_t() || steps == 0, 2381924128490303); // всегда должно находится пересечение (иначе это означает что мы потерялись по пути, вместо того чтобы однажды добраться до ячейки содержащей камеру)
+                    ++steps;
+
+                    const cell_handle_t next_cell = intersected_facet.first;
+
+                    // посчитаем какой путь мы уже прошли от точки, для этого надо найти расстояние от точки до места пересечения луча и треугольника (т.е. плоскости на которой он лежит, т.к. мы уже знаем что треугольник мы пересекаем лучем)
+                    plane_t facet_plane(intersected_facet);
+                    double distance_from_surface = facet_plane.distanceToIntersection(point0, ray_to_camera);
+                    if (distance_from_surface < 0.0) {
+                        // плоскость и луч почти параллельны, вычисления ненадежны, расстояние до пересечения может быть странным (например монотонность может сломаться)
+                        // в таком случае оставим предыдущую оценку пройденного пути
+                        distance_from_surface = prev_distance;
+                    } else {
+                        rassert(distance_from_surface > prev_distance * 0.99, 23789247124210293); // дополнительная проверка на разумность происходящего, мы удаляемся от точки - приближаемся к камере
+                    }
+                    prev_distance = distance_from_surface;
+
+                    if (cur_facets.size() == 0 || prev_distance > radius0 * 3) {
+                        next_cell->info().t_capacity += LAMBDA_IN;
+                        break;
+                    } else {
+                        next_cell->info().facets_capacities[intersected_facet.second] += LAMBDA_OUT * pow(LAMBDA_DEC_KOEF, steps);
+                   }
+                }
             }
             
             // шагаем от точки до камеры выставляя веса на треугольниках (они же ребра в графе) которые пересекаются по мере трассировки луча
@@ -420,7 +443,7 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
                 prev_distance = distance_from_surface;
 
                 // увеличиваем пропускную способность на треугольнике-ребре (в направлении от камеры к точке)
-                next_cell->info().facets_capacities[next_cell_facet_subindex] += LAMBDA_OUT;
+                next_cell->info().facets_capacities[next_cell_facet_subindex] += LAMBDA_OUT * pow(LAMBDA_DEC_KOEF, steps);
 
                 if (cur_facets.size() == 0) {
                     // если на будущее у нас нет кандидатов-треугольников, значит мы закончили наш путь и следующая ячейка содержит нашу камеру
@@ -432,7 +455,10 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
                     // участвовать в минимальном разрезе.
                     // Де-факто результат поменялся. А именно например в 0 модельке у меня  памятник стал соеденен с домиком.
                     // Условно если выкрутить в +inf, то таким образом мы говорим, что у нас вообще-то поверхность свзяная в которой никаки треугольники пропускать нельзя.
-                    // В обном месте земля, а иначе какая-та большая соеденнеая хреновина. 
+                    // В обном месте земля, а иначе какая-та большая соеденнеая хреновина.
+                    // Вот, у нас могут быть точки поверхности, а не внутренности. Если точка поверхности, то ч точки зрения разреза должно быть выбрано именно ребро в сток.
+                    // Если же ребро в сток +inf, то тогда мы говорим, что если луч пересекает хоть что-то, то это точно грань. То есть мы таким образом максимально убиваем
+                    // возможность сущестоввания точек на поверхности.
                 }
             }
             avg_triangles_intersected_per_ray += steps;
