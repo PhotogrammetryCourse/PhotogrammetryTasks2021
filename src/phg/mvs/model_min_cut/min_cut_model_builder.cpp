@@ -519,8 +519,8 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
 
             for (int v_index = 1; v_index <= 3; ++v_index) {
                 auto vi = ci->vertex(indexes[i * 3 + v_index - 1]);
-                for (int i = 0; i < 3; i++) {
-                    if (std::abs(vi->point()[i] - bb_min[i]) < 10e-4 || std::abs(vi->point()[i] - bb_min[i]) < 10e-4) {
+                for (int j = 0; j < 3; j++) {
+                    if (std::abs(vi->point()[j] - bb_min[j]) < 10e-4 || std::abs(vi->point()[j] - bb_max[j]) < 10e-4) {
                         fake = true;
                     }
                 }
