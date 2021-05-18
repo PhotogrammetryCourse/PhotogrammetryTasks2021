@@ -32,7 +32,7 @@
 //#define DATASET_DOWNSCALE            8
 //________________________________________________________________________________
 
-#define CAMERAS_LIMIT                5
+#define CAMERAS_LIMIT                32
 
 
 void checkFloat32ImageReadWrite()
