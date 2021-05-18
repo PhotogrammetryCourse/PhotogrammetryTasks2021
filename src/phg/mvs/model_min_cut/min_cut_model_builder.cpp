@@ -429,12 +429,10 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
                     // посчитаем какой путь мы уже прошли от точки, для этого надо найти расстояние от точки до места пересечения луча и треугольника (т.е. плоскости на которой он лежит, т.к. мы уже знаем что треугольник мы пересекаем лучем)
                     plane_t facet_plane(intersected_facet);
                     double distance_from_surface = facet_plane.distanceToIntersection(point0, ray_from_camera);
-                    if (distance_from_surface < 0.0) {
+                    if (distance_from_surface < 0.0 || distance_from_surface < prev_distance * 0.99) {
                         // плоскость и луч почти параллельны, вычисления ненадежны, расстояние до пересечения может быть странным (например монотонность может сломаться)
                         // в таком случае оставим предыдущую оценку пройденного пути
-                        distance_from_surface = prev_distance;
-                    } else {
-                        rassert(distance_from_surface > prev_distance * 0.99, 23789247124210293); // дополнительная проверка на разумность происходящего, мы удаляемся от точки - приближаемся к камере
+                        break;
                     }
                     prev_distance = distance_from_surface;
 
@@ -485,7 +483,7 @@ void MinCutModelBuilder::buildMesh(std::vector<cv::Vec3i> &mesh_faces, std::vect
                 // посчитаем какой путь мы уже прошли от точки, для этого надо найти расстояние от точки до места пересечения луча и треугольника (т.е. плоскости на которой он лежит, т.к. мы уже знаем что треугольник мы пересекаем лучем)
                 plane_t facet_plane(intersected_facet);
                 double distance_from_surface = facet_plane.distanceToIntersection(point0, ray_to_camera);
-                if (distance_from_surface < 0.0) {
+                if (distance_from_surface < 0.0 || distance_from_surface < prev_distance * 0.99) {
                     // плоскость и луч почти параллельны, вычисления ненадежны, расстояние до пересечения может быть странным (например монотонность может сломаться)
                     // в таком случае оставим предыдущую оценку пройденного пути
                     distance_from_surface = prev_distance;
